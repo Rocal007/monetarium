@@ -112,8 +112,6 @@ export const SpeedTraderArcadeModal: React.FC<SpeedTraderArcadeModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, gameState.scenario]);
 
-  if (!isOpen) return null;
-
   const engine = engineRef.current!;
   const { player, ai, currentPrice, candles, scenario, speedMultiplier, status, timeRemainingSec, totalRoundTimeSec, activeEvents } = gameState;
 
@@ -139,6 +137,8 @@ export const SpeedTraderArcadeModal: React.FC<SpeedTraderArcadeModalProps> = ({
 
   const priceRange = Math.max(1, maxPrice - minPrice);
   const getY = (p: number) => chartHeight - ((p - minPrice) / priceRange) * chartHeight;
+
+  if (!isOpen) return null;
 
   // Sound toggle
   const toggleSound = () => {

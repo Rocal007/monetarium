@@ -607,10 +607,12 @@ export default function TradingTerminalPage() {
       />
 
       {/* Speed-Trader Arcade & Market Game Modal */}
-      <SpeedTraderArcadeModal
-        isOpen={isArcadeModalOpen}
-        onClose={() => setIsArcadeModalOpen(false)}
-      />
+      {isArcadeModalOpen && (
+        <SpeedTraderArcadeModal
+          isOpen={isArcadeModalOpen}
+          onClose={() => setIsArcadeModalOpen(false)}
+        />
+      )}
 
       {/* Footer Disclaimer & Protocol Integrity */}
       <footer className="bg-trading-surface border-t border-trading-border px-4 py-2.5 text-center text-[11px] text-trading-muted font-mono flex flex-wrap items-center justify-between gap-2">
