@@ -8,10 +8,13 @@ import {
   TrendingDown, 
   Server, 
   Search,
-  Globe
+  Globe,
+  Activity,
+  Gamepad2
 } from 'lucide-react';
 import { Portfolio } from '../../lib/types/trading';
 import { EngineType } from '../../lib/engines/engine-manager';
+import { DataSentinelOverallState } from '../../lib/types/data-integrity';
 
 interface HeaderProps {
   selectedSymbol: string;
@@ -25,6 +28,9 @@ interface HeaderProps {
   isLive: boolean;
   activeEngine: EngineType;
   onOpenEngineModal: () => void;
+  dataSentinelState?: DataSentinelOverallState;
+  onOpenDataSentinelModal?: () => void;
+  onOpenArcadeModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -39,6 +45,9 @@ export const Header: React.FC<HeaderProps> = ({
   isLive,
   activeEngine,
   onOpenEngineModal,
+  dataSentinelState,
+  onOpenDataSentinelModal,
+  onOpenArcadeModal,
 }) => {
   const [searchInput, setSearchInput] = useState('');
   const isPositive = change24h >= 0;
@@ -55,6 +64,8 @@ export const Header: React.FC<HeaderProps> = ({
     switch (type) {
       case 'SIMULATED_PAPER':
         return 'Paper Sim';
+      case 'SPEED_TRADER_ARCADE':
+        return 'Arcade Sim';
       case 'TRADINGVIEW_WEBHOOK':
         return 'TradingView';
       case 'CCXT_CRYPTO':
@@ -105,6 +116,33 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-trading-muted">Engine:</span>
           <span className="text-white font-bold">{getEngineLabel(activeEngine)}</span>
         </button>
+
+        {/* Data Sentinel Real-Data Stream Indicator */}
+        {dataSentinelState && onOpenDataSentinelModal && (
+          <button
+            onClick={onOpenDataSentinelModal}
+            className="flex items-center gap-1.5 bg-trading-bg hover:bg-trading-card px-2.5 py-1.5 rounded-lg border border-trading-border/80 text-xs font-mono transition group"
+            title="Data Sentinel Agent: Echtzeit-Datenverbindung & Integritäts-Audit öffnen"
+          >
+            <Activity className={`w-3.5 h-3.5 ${dataSentinelState.status === 'OPTIMAL' ? 'text-emerald-400' : 'text-amber-400 animate-pulse'} group-hover:scale-110 transition-transform`} />
+            <span className="text-trading-muted">Sentinel:</span>
+            <span className={`font-bold ${dataSentinelState.status === 'OPTIMAL' ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {dataSentinelState.overallScore.toFixed(0)}% • {dataSentinelState.avgLatencyMs}ms
+            </span>
+          </button>
+        )}
+
+        {/* Speed-Trader Arcade Launcher Button */}
+        {onOpenArcadeModal && (
+          <button
+            onClick={onOpenArcadeModal}
+            className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-500/20 via-sky-500/20 to-emerald-500/20 hover:from-emerald-500/30 hover:to-sky-500/30 px-3 py-1.5 rounded-lg border border-emerald-500/50 text-xs font-mono font-black text-emerald-300 shadow-md shadow-emerald-500/10 transition group animate-pulse hover:animate-none"
+            title="Speed-Trader Arcade Engine: Marktsimulation mit bis zu 20x Speed, Event-Shocks & AI-Duell"
+          >
+            <Gamepad2 className="w-4 h-4 text-emerald-400 group-hover:scale-125 transition-transform" />
+            <span className="tracking-wide">Arcade spielen</span>
+          </button>
+        )}
 
         {/* Universal Global Market Ticker Search & Quick Pills */}
         <div className="flex items-center gap-2 ml-1">

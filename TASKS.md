@@ -25,6 +25,13 @@ Dieses Dokument wird automatisch aktualisiert, wenn neue Aufgaben oder Änderung
 - [x] GitHub Repository öffentlich/synchronisiert (https://github.com/Rocal007/monetarium)
 - [x] WhatsApp Task-Integration via `#monetarium` / `#mon` aktiviert
 
+### 5. Speed-Trader Arcade & Market Game Engine
+- [x] Gamifizierte High-Speed Marktsimulation mit bis zu 20x Tick-Beschleunigung
+- [x] 5 interaktive Spielmodi (Bull Run, Flash Crash, Whale Whiplash, AI-Duell gegen Alpha-Bot, Bar-by-Bar Replay)
+- [x] Degen-Hebel bis 50x mit automatischer Liquidations-Physik
+- [x] Integrierter autarker 8-Bit Web-Audio-Synthesizer für Soundeffekte
+- [x] 1-Klick-Start im Terminal-Header & Hotkeys (L, S, Space)
+
 ---
 
 ## 📥 Eingehende WhatsApp-Aufgaben & Feedback

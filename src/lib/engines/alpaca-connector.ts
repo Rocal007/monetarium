@@ -65,6 +65,29 @@ export class AlpacaConnector {
     };
   }
 
+  public setConfig(config: AlpacaConfig): void {
+    if (config.apiKey !== undefined) this.apiKey = config.apiKey.trim();
+    if (config.apiSecret !== undefined) this.apiSecret = config.apiSecret.trim();
+    if (config.isPaper !== undefined) {
+      this.baseUrl = config.isPaper
+        ? 'https://paper-api.alpaca.markets'
+        : 'https://api.alpaca.markets';
+    }
+    this.isMock = !this.apiKey || !this.apiSecret;
+  }
+
+  public getConfig(): AlpacaConfig {
+    return {
+      apiKey: this.apiKey,
+      apiSecret: this.apiSecret ? '••••••••' : '',
+      isPaper: this.baseUrl.includes('paper'),
+    };
+  }
+
+  public isConfigured(): boolean {
+    return !this.isMock;
+  }
+
   /**
    * Prüft den Status der US-Börsen (NYSE/NASDAQ)
    */

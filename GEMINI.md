@@ -10,6 +10,7 @@ Dieses Projekt folgt den NEXUS-Spezifikationen und dem System-Operator-Modell.
   - [Orchestrator](file:///.agents/agents/orchestrator/AGENT.md)
   - [Trading Multi-Subagents](file:///.agents/agents/trading/AGENT.md)
   - [Judikative Officer](file:///.agents/agents/judikative/AGENT.md)
+  - [Data Sentinel Agent](file:///.agents/agents/data-integrity/AGENT.md)
   - [Visium UI Agent](file:///.agents/agents/visium/AGENT.md)
   - [Content Architect](file:///.agents/agents/content-architect/AGENT.md)
 

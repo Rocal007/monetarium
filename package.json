@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test:quant": "tsx src/lib/analytics/test-quant.ts",
     "test:agents": "tsx src/lib/agents/test-agent-strategies.ts",
+    "test:sentinel": "tsx src/lib/agents/data-integrity/test-data-sentinel.ts",
     "backtest:turbo": "tsx src/scripts/backtest-alpha-turbo.ts",
     "daemon": "tsx src/scripts/headless-runner.ts"
   },

@@ -32,6 +32,10 @@ import { MacroSentimentState } from '../lib/types/news';
 import { SectorType } from '../lib/types/sectors';
 import { getAllSectorAgents, getSectorAgent, getSectorProfile } from '../lib/agents/sectors/sector-fleet';
 import { Candle, OrderSide, OrderType, StrategyType } from '../lib/types/trading';
+import { dataIntegrityAgent } from '../lib/agents/subagents/data-integrity-agent';
+import { DataSentinelModal } from '../components/terminal/DataSentinelModal';
+import { DataSentinelOverallState } from '../lib/types/data-integrity';
+import { SpeedTraderArcadeModal } from '../components/terminal/SpeedTraderArcadeModal';
 
 export default function TradingTerminalPage() {
   const [selectedSymbol, setSelectedSymbol] = useState('BTC/USDT');
@@ -46,6 +50,7 @@ export default function TradingTerminalPage() {
   const engineManagerRef = useRef<EngineManager>(new EngineManager());
   const [activeEngine, setActiveEngine] = useState<EngineType>('SIMULATED_PAPER');
   const [isEngineModalOpen, setIsEngineModalOpen] = useState(false);
+  const [isArcadeModalOpen, setIsArcadeModalOpen] = useState(false);
 
   // Portfolio & Exchange Engines
   const portfolioManagerRef = useRef<PortfolioManager>(new PortfolioManager(10000));
@@ -66,6 +71,17 @@ export default function TradingTerminalPage() {
   const [latestOrchestratorRecord, setLatestOrchestratorRecord] = useState<OrchestratorCycleRecord | null>(null);
   const [orchestratorAuditTrail, setOrchestratorAuditTrail] = useState<OrchestratorCycleRecord[]>([]);
   const [isCircuitTripped, setIsCircuitTripped] = useState<boolean>(false);
+
+  // Data Sentinel Agent State (D_real Real-Data Stream Officer)
+  const [dataSentinelState, setDataSentinelState] = useState<DataSentinelOverallState>(() => dataIntegrityAgent.getTelemetry());
+  const [isDataSentinelModalOpen, setIsDataSentinelModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsubscribe = dataIntegrityAgent.subscribe((state) => {
+      setDataSentinelState({ ...state });
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Sektor-Flotte State
   const [activeSector, setActiveSector] = useState<SectorType>('CRYPTO');
@@ -155,62 +171,20 @@ export default function TradingTerminalPage() {
     let isMounted = true;
 
     async function loadData() {
-      const isCrypto = selectedSymbol.includes('USDT');
-      const apiSymbol = selectedSymbol.replace('/', '');
-
-      // Falls Aktien / TradFi / Sektor-Symbol
-      if (!isCrypto || activeEngine === 'ALPACA_EQUITY') {
-        const cleanSym = selectedSymbol.replace('/', '');
-        const alpacaBars = await engineManagerRef.current.getAlpaca().getStockBars(cleanSym, '1Hour', 100);
-        if (isMounted && alpacaBars.length > 0) {
-          setCandles(alpacaBars);
-          const latest = alpacaBars[alpacaBars.length - 1].close;
-          setCurrentPrice(latest);
-          setChange24h(1.25);
-          setHigh24h(Number((latest * 1.015).toFixed(2)));
-          setLow24h(Number((latest * 0.985).toFixed(2)));
-          setIsLive(true);
-          portfolioManagerRef.current.updateMarketPrice(selectedSymbol, latest);
+      try {
+        const verified = await dataIntegrityAgent.fetchVerifiedSymbolData(selectedSymbol, '1h', 100);
+        if (isMounted && verified.candles.length > 0) {
+          setCandles(verified.candles);
+          setCurrentPrice(verified.currentPrice);
+          setChange24h(verified.change24h);
+          setHigh24h(verified.high24h);
+          setLow24h(verified.low24h);
+          setIsLive(verified.isLive);
+          portfolioManagerRef.current.updateMarketPrice(selectedSymbol, verified.currentPrice);
           setPortfolioState(portfolioManagerRef.current.getPortfolio());
-          return;
         }
-      }
-
-      if (isCrypto) {
-        // Live-Daten von Binance / CCXT versuchen
-        const liveTicker = await fetchCryptoTicker(apiSymbol);
-        const liveCandles = await fetchLiveCryptoCandles(apiSymbol, '1h', 100);
-
-        if (isMounted && liveCandles.length > 0) {
-          setCandles(liveCandles);
-          const latest = liveCandles[liveCandles.length - 1].close;
-          setCurrentPrice(latest);
-          if (liveTicker) {
-            setChange24h(liveTicker.change24h);
-            setHigh24h(liveTicker.high24h);
-            setLow24h(liveTicker.low24h);
-          }
-          setIsLive(true);
-          portfolioManagerRef.current.updateMarketPrice(selectedSymbol, latest);
-          setPortfolioState(portfolioManagerRef.current.getPortfolio());
-          return;
-        }
-      }
-
-      // Fallback: Realistische Simulation jedes weltweiten Assets (Aktien, Indizes, Rohstoffe, Krypto)
-      setIsLive(false);
-      const resolved = resolveGlobalSymbol(selectedSymbol);
-      const simCandles = loadUniversalCandles(selectedSymbol, resolved.basePrice, 120);
-
-      if (isMounted) {
-        setCandles(simCandles);
-        const latest = simCandles[simCandles.length - 1].close;
-        setCurrentPrice(latest);
-        setChange24h(1.85);
-        setHigh24h(Number((latest * 1.025).toFixed(2)));
-        setLow24h(Number((latest * 0.975).toFixed(2)));
-        portfolioManagerRef.current.updateMarketPrice(selectedSymbol, latest);
-        setPortfolioState(portfolioManagerRef.current.getPortfolio());
+      } catch (err) {
+        console.error('Data Sentinel Ladefehler:', err);
       }
     }
 
@@ -442,6 +416,9 @@ export default function TradingTerminalPage() {
     engineManagerRef.current.setActiveEngine(engine);
     setActiveEngine(engine);
     setIsEngineModalOpen(false);
+    if (engine === 'SPEED_TRADER_ARCADE') {
+      setIsArcadeModalOpen(true);
+    }
   };
 
   // Quant-Metriken berechnen
@@ -475,6 +452,9 @@ export default function TradingTerminalPage() {
         isLive={isLive}
         activeEngine={activeEngine}
         onOpenEngineModal={() => setIsEngineModalOpen(true)}
+        dataSentinelState={dataSentinelState}
+        onOpenDataSentinelModal={() => setIsDataSentinelModalOpen(true)}
+        onOpenArcadeModal={() => setIsArcadeModalOpen(true)}
       />
 
       {/* GESAMTBÖRSENMARKT-RADAR (Global Intermarket Watch) */}
@@ -606,13 +586,30 @@ export default function TradingTerminalPage() {
         </div>
       </main>
 
-      {/* Engine Selector Modal */}
+      {/* Engine Selector & External Connections Modal */}
       <EngineSelectorModal
         isOpen={isEngineModalOpen}
         onClose={() => setIsEngineModalOpen(false)}
         engines={availableEngines}
         activeEngine={activeEngine}
         onSelectEngine={handleSelectEngine}
+        engineManager={engineManagerRef.current}
+      />
+
+      {/* Data Sentinel Real-Data Stream & Diagnostic Modal */}
+      <DataSentinelModal
+        isOpen={isDataSentinelModalOpen}
+        onClose={() => setIsDataSentinelModalOpen(false)}
+        telemetry={dataSentinelState}
+        onRunDiagnostics={async () => {
+          await dataIntegrityAgent.pingAllProviders();
+        }}
+      />
+
+      {/* Speed-Trader Arcade & Market Game Modal */}
+      <SpeedTraderArcadeModal
+        isOpen={isArcadeModalOpen}
+        onClose={() => setIsArcadeModalOpen(false)}
       />
 
       {/* Footer Disclaimer & Protocol Integrity */}

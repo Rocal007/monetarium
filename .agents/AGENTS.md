@@ -102,3 +102,17 @@ wobei:
 
 ### 3. Offenes Asset-Universum & Universal Discovery
 Kein Asset auf Monetarium ist statisch limitiert. Jeder liquide Titel der weltweiten Börsenmärkte kann über die einheitlichen Routing-Engines (CCXT, Alpaca, VirtualExchange) dynamisch gesucht, analysiert und beordert werden.
+
+---
+
+## VI. DAS REAL-DATA SENTINEL PRINZIP (Datenintegritäts-Operator \( \mathcal{D}_{\text{real}} \))
+
+### 1. Datenintegritäts-Mandat
+Kein externes Marktdatum (Binance, CCXT, Alpaca, Forex Factory CDN) darf unvalidiert in die Analyse- oder Trading-Engines gelangen. Der **Data Sentinel Agent** (`DataIntegrityAgent`) setzt den vorgeschalteten Operator \( \mathcal{D}_{\text{real}} \) durch:
+\[ \mathcal{D}_{\text{real}}: \mathcal{S}_{\text{raw}} \longrightarrow \mathcal{S}_{\text{verified}} \]
+wobei jede Zeitreihe \( \mathcal{S}_{\text{verified}} \) die 4 unumstößlichen Daten-Invarianten erfüllt:
+1. **Geometrische Konsistenz:** \( H \ge \max(O, C) \land L \le \min(O, C) \land L > 0 \land V \ge 0 \).
+2. **Monotonie & Lückenlosigkeit:** Strikte Zeitchronologie \( t_k > t_{k-1} \) ohne Duplikate mit automatischer Gap-Reparatur.
+3. **Bad-Tick & Flash-Spike Filter:** Isolierung von Datenartefakten und API-Glitsches (\( |\Delta P| > 25\% \)).
+4. **Stale Data Veto & Auto-Failover:** Latenzüberwachung und sofortiger Umschaltmechanismus (Binance $\to$ CCXT $\to$ Resilient Mirror).
+
