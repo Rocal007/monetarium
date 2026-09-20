@@ -129,25 +129,32 @@ export const TradingOrchestratorPanel: React.FC<TradingOrchestratorPanelProps> =
           </span>
           <span className="text-[10px] text-sky-400">Das Protokoll IST der Agent</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
           {availableProfiles.map((p) => {
             const isSelected = p.id === activeProfile.id;
+            const isTurbo = p.id === 'QUANT_ALPHA_TURBO';
             return (
               <button
                 key={p.id}
                 onClick={() => onSelectProfile(p)}
                 className={`p-2 rounded-lg border text-left transition flex flex-col justify-between ${
                   isSelected
-                    ? 'bg-trading-card border-sky-500/50 shadow-md shadow-sky-500/10'
+                    ? isTurbo
+                      ? 'bg-purple-950/40 border-purple-500 shadow-md shadow-purple-500/20'
+                      : 'bg-trading-card border-sky-500/50 shadow-md shadow-sky-500/10'
                     : 'bg-trading-bg border-trading-border hover:border-trading-border/80 opacity-80 hover:opacity-100'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-300'}`}>
-                    {p.name.split(' ')[0]}
+                  <span className={`text-xs font-bold ${isSelected ? (isTurbo ? 'text-purple-300' : 'text-white') : 'text-slate-300'}`}>
+                    {p.name.replace(/\s*\(.*\)/, '')}
                   </span>
                   <span className={`text-[9px] px-1 py-0.2 rounded border ${
-                    isSelected ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-trading-surface text-trading-muted border-trading-border'
+                    isSelected 
+                      ? isTurbo 
+                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 font-bold' 
+                        : 'bg-sky-500/20 text-sky-300 border-sky-500/30' 
+                      : 'bg-trading-surface text-trading-muted border-trading-border'
                   }`}>
                     {p.badge}
                   </span>

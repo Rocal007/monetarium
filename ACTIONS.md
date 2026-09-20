@@ -53,3 +53,11 @@ Dieses Protokoll dokumentiert chronologisch alle Außenkommunikationen (WhatsApp
 - **Inhalt:** Charmante Entschärfung der vorigen Ansage mit Augenzwinkern ("beide sture Hund', aber bringen die Sachen auf Schiene"), ehrlicher Dank für die Zusammenarbeit bei Technogrips (Supertechno 50, 3D-Kran) und Monetarium sowie entspannte Sonntagabend-Wünsche.
 - **Verknüpfte Aufgaben:** Partner-Beziehungspflege & Teammotivation
 - **Status:** Gesendet ✅
+
+### [2026-09-20 21:43] WhatsApp – Joachim Nauen (Jochen, +43 650 4542261)
+- **Kanal:** WhatsApp (jochen-agent / wa-hub.service)
+- **Empfänger:** Joachim Nauen (Jochen)
+- **Kontext:** Monetarium Hashtag- & Aufgaben-System (#monetarium, #mon, #terminal, #trade, #bot)
+- **Inhalt:** Erklärung der neuen Tags für Monetarium übermittelt: Jochen kann analog zu #task und #web bei Technogrips ab sofort mit #monetarium/#mon (Allgemein), #terminal (UI, Charts, Screener) und #bot/#trade (Strategien, Risikoparameter) direkte Änderungswünsche und Aufgaben einspeisen, die automatisch in TASKS.md erfasst werden.
+- **Verknüpfte Aufgaben:** Multi-Project WhatsApp-Routing & Aufgaben-Automatisierung
+- **Status:** Gesendet ✅

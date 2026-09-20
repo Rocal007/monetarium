@@ -134,6 +134,56 @@ export const PROTOCOL_PRESETS: Record<string, TradingAgentProtocolProfile> = {
       cacheTtlTicks: 1,
     },
   },
+
+  QUANT_ALPHA_TURBO: {
+    id: 'QUANT_ALPHA_TURBO',
+    name: 'Quant-Alpha Turbo (Leader Momentum)',
+    badge: 'Alpha 35%+',
+    description: 'Konsequente Ausnutzung von Megatrends & SVI-Attention-Explosionen. 2.2% Risiko je Trade, Kelly-Faktor 0.65, Trailing-Pyramidisierung und 12% Notbremsen-Circuit-Breaker.',
+    marketIntelligence: {
+      lookbackCandles: 45,
+      emaFastPeriod: 8,
+      emaSlowPeriod: 21,
+      rsiPeriod: 14,
+      rsiOverbought: 75,
+      rsiOversold: 25,
+      volatilityAtrPeriod: 14,
+      highVolThresholdPercent: 3.2,
+    },
+    alphaStrategy: {
+      minConfluenceScore: 60,
+      allowedStrategies: [
+        'TURTLE_BREAKOUT',
+        'SEARCH_ATTENTION_MOMENTUM',
+        'SUPERTREND_VOLATILITY',
+        'ORB_BREAKOUT',
+        'MOMENTUM_BREAKOUT',
+      ],
+      targetRiskRewardRatio: 3.2,
+      stopLossAtrMultiplier: 1.5,
+      takeProfitAtrMultiplier: 4.8,
+    },
+    riskGuardian: {
+      maxRiskPerTradePercent: 2.2,
+      maxDrawdownCircuitPercent: 12.0,
+      maxPortfolioExposurePercent: 85.0,
+      kellyFraction: 0.65,
+      cooldownTicksAfterLoss: 2,
+      allowShorting: true,
+    },
+    executionRouting: {
+      defaultOrderType: 'MARKET',
+      limitOffsetBps: 2,
+      maxSlippageBps: 20,
+      twapSlices: 1,
+    },
+    quantEvaluator: {
+      hurdleRateAnnualized: 0.35,
+      evaluationWindowTrades: 25,
+      driftThresholdPercent: 14.0,
+      cacheTtlTicks: 1,
+    },
+  },
 };
 
 export const DEFAULT_PROTOCOL_PROFILE = PROTOCOL_PRESETS.BALANCED_ALPHA;
