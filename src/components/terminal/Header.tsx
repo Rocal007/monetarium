@@ -1,7 +1,15 @@
 'use client';
 
-import React from 'react';
-import { ShieldCheck, RefreshCw, TrendingUp, TrendingDown, Server } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  ShieldCheck, 
+  RefreshCw, 
+  TrendingUp, 
+  TrendingDown, 
+  Server, 
+  Search,
+  Globe
+} from 'lucide-react';
 import { Portfolio } from '../../lib/types/trading';
 import { EngineType } from '../../lib/engines/engine-manager';
 
@@ -32,7 +40,16 @@ export const Header: React.FC<HeaderProps> = ({
   activeEngine,
   onOpenEngineModal,
 }) => {
+  const [searchInput, setSearchInput] = useState('');
   const isPositive = change24h >= 0;
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchInput.trim()) {
+      onSelectSymbol(searchInput.trim().toUpperCase());
+      setSearchInput('');
+    }
+  };
 
   const getEngineLabel = (type: EngineType) => {
     switch (type) {
@@ -46,6 +63,15 @@ export const Header: React.FC<HeaderProps> = ({
         return 'Alpaca (Aktien)';
     }
   };
+
+  const popularSymbols = [
+    { sym: 'BTC/USDT', label: 'BTC' },
+    { sym: 'SPY', label: 'S&P 500' },
+    { sym: 'QQQ', label: 'Nasdaq' },
+    { sym: 'NVDA', label: 'Nvidia' },
+    { sym: 'DAX', label: 'DAX 40' },
+    { sym: 'GLD', label: 'Gold' },
+  ];
 
   return (
     <header className="bg-trading-surface border-b border-trading-border px-4 py-3 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-40">
@@ -80,28 +106,58 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-white font-bold">{getEngineLabel(activeEngine)}</span>
         </button>
 
-        {/* Symbol Selector */}
-        <div className="flex bg-trading-bg p-1 rounded-lg border border-trading-border text-xs font-mono ml-2">
-          {['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'SPY (S&P 500)'].map((sym) => (
+        {/* Universal Global Market Ticker Search & Quick Pills */}
+        <div className="flex items-center gap-2 ml-1">
+          {/* Quick Global Picks */}
+          <div className="hidden xl:flex bg-trading-bg p-1 rounded-lg border border-trading-border text-xs font-mono">
+            {popularSymbols.map(({ sym, label }) => {
+              const isSelected = selectedSymbol === sym || (sym === 'SPY' && selectedSymbol.includes('SPY'));
+              return (
+                <button
+                  key={sym}
+                  onClick={() => onSelectSymbol(sym)}
+                  className={`px-2 py-1 rounded transition-all ${
+                    isSelected
+                      ? 'bg-trading-card text-trading-accent font-bold shadow-sm'
+                      : 'text-trading-muted hover:text-white'
+                  }`}
+                  title={`${label} (${sym})`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Any Symbol Search Input */}
+          <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+            <div className="absolute left-2.5 text-trading-muted pointer-events-none">
+              <Search className="w-3.5 h-3.5" />
+            </div>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Weltmarkt-Ticker (z.B. AAPL, MSFT, SAP.DE)..."
+              className="bg-trading-bg border border-trading-border rounded-lg pl-8 pr-12 py-1.5 text-xs text-white placeholder-trading-muted font-mono w-44 sm:w-60 focus:outline-none focus:border-trading-accent transition"
+            />
             <button
-              key={sym}
-              onClick={() => onSelectSymbol(sym)}
-              className={`px-2.5 py-1 rounded transition-all ${
-                selectedSymbol === sym
-                  ? 'bg-trading-card text-trading-accent font-bold shadow-sm'
-                  : 'text-trading-muted hover:text-white'
-              }`}
+              type="submit"
+              className="absolute right-1 px-1.5 py-0.5 bg-trading-card hover:bg-slate-700 text-trading-accent text-[10px] font-mono rounded font-bold transition border border-trading-border/60"
             >
-              {sym}
+              GO
             </button>
-          ))}
+          </form>
         </div>
       </div>
 
       {/* Ticker Stats */}
       <div className="flex items-center gap-6 font-mono text-xs">
         <div>
-          <span className="text-trading-muted block text-[10px] uppercase">Marktpreis</span>
+          <span className="text-trading-muted block text-[10px] uppercase flex items-center gap-1">
+            <Globe className="w-2.5 h-2.5 text-sky-400" />
+            {selectedSymbol}
+          </span>
           <span className={`text-base font-bold flex items-center gap-1 ${isPositive ? 'text-trading-buy' : 'text-trading-sell'}`}>
             {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             {currentPrice.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €

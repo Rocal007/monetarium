@@ -108,7 +108,44 @@ export interface BacktestResult {
   overfittingVerdict: 'STABLE' | 'MODERATE_RISK' | 'OVERFITTED';
 }
 
-export type StrategyType = 'GRID' | 'DCA' | 'MOMENTUM';
+export type StrategyCategory = 'TREND' | 'MEAN_REVERSION' | 'OPTIONS' | 'EXECUTION_RISK';
+
+export type StrategyType =
+  | 'GRID'
+  | 'DCA'
+  | 'MOMENTUM'
+  | 'TURTLE'
+  | 'SUPERTREND'
+  | 'ORB'
+  | 'BOLLINGER_REVERSION'
+  | 'RSI_CONNORS'
+  | 'PAIRS_TRADING'
+  | 'COLLAR_CYLINDER'
+  | 'STRADDLE'
+  | 'TWAP'
+  | 'VWAP'
+  | 'CPPI';
+
+export interface StrategyParamDefinition {
+  key: string;
+  label: string;
+  defaultValue: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  description?: string;
+}
+
+export interface StrategyMetadata {
+  id: StrategyType;
+  name: string;
+  category: StrategyCategory;
+  badge: string;
+  description: string;
+  formula: string;
+  defaultParams: Record<string, number>;
+  paramDefs: StrategyParamDefinition[];
+}
 
 export interface StrategySignal {
   action: 'BUY' | 'SELL' | 'HOLD';

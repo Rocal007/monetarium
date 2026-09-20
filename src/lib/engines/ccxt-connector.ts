@@ -96,7 +96,7 @@ export class CCXTConnector {
   }
 
   /**
-   * Führt eine Order über den Server-Proxy aus
+   * Führt eine Order über den Server-Proxy (oder im Node-Kontext) aus
    */
   public async createOrder(params: {
     exchangeId: string;
@@ -107,14 +107,37 @@ export class CCXTConnector {
     price?: number;
     credentials?: ExchangeCredentials;
   }) {
-    return {
-      id: `ccxt-mock-${Date.now()}`,
-      symbol: params.symbol,
-      side: params.side,
-      amount: params.amount,
-      price: params.price,
-      status: 'simulated_paper_filled',
-      timestamp: Date.now(),
-    };
+    const isBrowser = typeof window !== 'undefined';
+    const baseUrl = isBrowser
+      ? ''
+      : (process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`);
+
+    try {
+      const res = await fetch(`${baseUrl}/api/engines/ccxt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `Börsenfehler (${res.statusText})`);
+      }
+
+      return {
+        id: json.orderId || `ccxt-${Date.now()}`,
+        symbol: json.symbol,
+        side: json.side,
+        amount: json.amount,
+        price: json.price,
+        status: json.status,
+        isSandbox: json.isSandbox,
+        timestamp: json.timestamp || Date.now(),
+        raw: json.raw,
+      };
+    } catch (err: any) {
+      throw new Error(`[CCXTConnector] Order fehlgeschlagen: ${err?.message || 'Unbekannter Fehler'}`);
+    }
   }
 }
+

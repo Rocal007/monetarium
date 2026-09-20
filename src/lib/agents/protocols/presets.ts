@@ -20,7 +20,7 @@ export const PROTOCOL_PRESETS: Record<string, TradingAgentProtocolProfile> = {
     },
     alphaStrategy: {
       minConfluenceScore: 75,
-      allowedStrategies: ['MOMENTUM_BREAKOUT', 'DCA_ACCUMULATION'],
+      allowedStrategies: ['COLLAR_CYLINDER', 'CPPI_CAPITAL_FLOOR', 'VWAP_VALUE', 'DCA_ACCUMULATION', 'MOMENTUM_BREAKOUT'],
       targetRiskRewardRatio: 2.5,
       stopLossAtrMultiplier: 1.5,
       takeProfitAtrMultiplier: 3.75,
@@ -64,7 +64,7 @@ export const PROTOCOL_PRESETS: Record<string, TradingAgentProtocolProfile> = {
     },
     alphaStrategy: {
       minConfluenceScore: 65,
-      allowedStrategies: ['MOMENTUM_BREAKOUT', 'MEAN_REVERSION_GRID', 'DCA_ACCUMULATION'],
+      allowedStrategies: ['MOMENTUM_BREAKOUT', 'TURTLE_BREAKOUT', 'BOLLINGER_ZSCORE', 'COLLAR_CYLINDER', 'MEAN_REVERSION_GRID', 'DCA_ACCUMULATION'],
       targetRiskRewardRatio: 2.0,
       stopLossAtrMultiplier: 1.8,
       takeProfitAtrMultiplier: 3.6,
@@ -108,7 +108,7 @@ export const PROTOCOL_PRESETS: Record<string, TradingAgentProtocolProfile> = {
     },
     alphaStrategy: {
       minConfluenceScore: 55,
-      allowedStrategies: ['MEAN_REVERSION_GRID', 'MOMENTUM_BREAKOUT'],
+      allowedStrategies: ['MEAN_REVERSION_GRID', 'SUPERTREND_VOLATILITY', 'STRADDLE_VOLATILITY', 'RSI_CONNORS_REVERSAL', 'ORB_BREAKOUT', 'BOLLINGER_ZSCORE'],
       targetRiskRewardRatio: 1.5,
       stopLossAtrMultiplier: 1.2,
       takeProfitAtrMultiplier: 1.8,

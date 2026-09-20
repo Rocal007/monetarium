@@ -102,3 +102,27 @@ Der regionale Anpassungsoperator \( \Lambda_{\text{local}} \):
 4.  **Zero-Byte Protection:** Zentrale Stylesheets und Assets dürfen niemals überschrieben oder geleert werden.
 5.  **Task Hygiene & Active Process Cleanup:** Alle Hintergrund-Prozesse, Daemons und temporären Worker müssen nach getaner Arbeit unverzüglich terminiert werden (`manage_task kill`).
 6.  **Core-System Integration:** Verknüpfung mit den zentralen Nexus-Core-Definitionen (`E:\Nexus-app\nexus`).
+
+---
+
+## V. DAS GESAMTBÖRSENMARKT-PRINZIP (Global Market Radar & Intermarket Confluence)
+
+### 1. Ganzheitlicher Markt-Zustandsraum
+Monetarium operiert nicht in einer isolierten Insel einzelner Symbole, sondern betrachtet den gesamten globalen Börsen- und Finanzmarkt:
+\[ M_{\text{global}} = \left( \mathcal{I}_{\text{equities}}, \mathcal{I}_{\text{indices}}, \mathcal{I}_{\text{commodities}}, \mathcal{I}_{\text{yields}}, \mathcal{I}_{\text{fx}}, \mathcal{I}_{\text{crypto}} \right) \]
+*   **Globale Leitindizes:** S&P 500, Nasdaq 100, DAX 40, Dow Jones, Nikkei 225.
+*   **Volatilitäts- & Risiko-Anker:** CBOE Volatility Index (VIX), US 10-Year Treasury Yields (^TNX), Dollar-Index (DXY).
+*   **Rohstoff-Fundament:** Gold (XAU), WTI/Brent Crude Oil.
+*   **Krypto-Makro:** Bitcoin (BTC) Dominanz und Spot-Nettozuflüsse.
+
+### 2. Intermarket Macro-Operator \( \Omega_{\text{Macro}} \)
+Der Alpha-Hypothesen-Generator \( F \) bettet jedes Einzelsignal in den Makro-Operator ein:
+\[ F_{\text{signal}}(s) = f_{\text{local}}(s) \times \Omega_{\text{Macro}}(M_{\text{global}}) \]
+wobei:
+*   \( \Omega_{\text{Macro}} \in [-1, +1] \) das globale Marktregime quantifiziert:
+    - **Risk-On (\( \Omega > +0.3 \)):** S&P 500 / Nasdaq im Aufwärtstrend, VIX < 18, fallende/stabile Renditen. Begünstigt Trendfolge- und Momentum-Strategien.
+    - **Risk-Off (\( \Omega < -0.3 \)):** S&P 500 im Abwärtstrend, VIX > 22, Flucht in Gold/Anleihen. Drosselt Long-Exposures, aktiviert Hedging (`COLLAR_CYLINDER`, `CPPI_CAPITAL_FLOOR`).
+    - **Volatility Expansion (\( \text{VIX} > 28 \)):** Notfall-Blackout oder zwingende Reversion-Gitter (`STRADDLE_VOLATILITY`, `MEAN_REVERSION_GRID`).
+
+### 3. Offenes Asset-Universum & Universal Discovery
+Kein Asset auf Monetarium ist statisch limitiert. Jeder liquide Titel der weltweiten Börsenmärkte kann über die einheitlichen Routing-Engines (CCXT, Alpaca, VirtualExchange) dynamisch gesucht, analysiert und beordert werden.

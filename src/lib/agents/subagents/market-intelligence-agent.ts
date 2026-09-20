@@ -1,13 +1,16 @@
 import { Candle } from '../../types/trading';
 import { MarketIntelligenceProtocol, MarketRegime, PerceptionState } from '../protocols/types';
+import { GlobalMarketState } from '../../types/market';
 
 export class MarketIntelligenceAgent {
   /**
    * Analysiert den Kerzenverlauf unter strikter Befolgung des MarketIntelligenceProtocols
+   * und bettet das Einzelsignal in den Gesamtbörsenmarkt (Global Market Confluence) ein.
    */
   public static analyze(
     candles: Candle[],
-    protocol: MarketIntelligenceProtocol
+    protocol: MarketIntelligenceProtocol,
+    globalMarket?: GlobalMarketState | null
   ): PerceptionState {
     const timestamp = Date.now();
 
@@ -66,6 +69,36 @@ export class MarketIntelligenceAgent {
       summary = `Seitwärts-Oszillation im Mean-Reversion-Kanal. Oszillation um EMA-Mittelwert.`;
     }
 
+    // 6. Gesamtbörsenmarkt-Konfluenz (Intermarket Macro-Integration)
+    let confluenceMultiplier = 1.0;
+    let globalMarketPayload: PerceptionState['globalMarket'] = undefined;
+
+    if (globalMarket) {
+      if (globalMarket.riskRegime === 'VOLATILITY_EXPANSION' || globalMarket.vixLevel >= 25.0) {
+        confluenceMultiplier = 0.6;
+        summary += ` [Gesamtmarkt-Warnung: Hohe Volatilität im Weltmarkt, VIX bei ${globalMarket.vixLevel.toFixed(1)}]`;
+      } else if (globalMarket.riskRegime === 'RISK_OFF') {
+        confluenceMultiplier = 0.75;
+        if (regime === 'BULL_TREND') {
+          summary += ` [Makro-Gegenwind: Gesamtmarkt im Risk-Off Modus, S&P 500: ${globalMarket.sp500Change.toFixed(2)}%]`;
+        }
+      } else if (globalMarket.riskRegime === 'RISK_ON') {
+        confluenceMultiplier = 1.25;
+        if (regime === 'BULL_TREND') {
+          summary += ` [Makro-Rückenwind: Gesamtmarkt im Risk-On Modus, S&P 500: +${globalMarket.sp500Change.toFixed(2)}%, VIX bei ${globalMarket.vixLevel.toFixed(1)}]`;
+        }
+      }
+
+      globalMarketPayload = {
+        riskRegime: globalMarket.riskRegime,
+        sentimentScore: globalMarket.sentimentScore,
+        vixLevel: globalMarket.vixLevel,
+        sp500Change: globalMarket.sp500Change,
+        confluenceMultiplier,
+        summary: globalMarket.summary,
+      };
+    }
+
     return {
       timestamp,
       regime,
@@ -74,8 +107,9 @@ export class MarketIntelligenceAgent {
       emaSlow: Number(emaSlow.toFixed(2)),
       atr: Number(atr.toFixed(2)),
       atrPercent: Number(atrPercent.toFixed(2)),
-      trendStrength,
+      trendStrength: Math.min(100, Math.round(trendStrength * confluenceMultiplier)),
       summary,
+      globalMarket: globalMarketPayload,
     };
   }
 

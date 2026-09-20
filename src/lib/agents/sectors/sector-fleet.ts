@@ -22,7 +22,7 @@ export const SECTOR_PROFILES: Record<SectorType, TradingAgentProtocolProfile> = 
     },
     alphaStrategy: {
       minConfluenceScore: 65,
-      allowedStrategies: ['MOMENTUM_BREAKOUT', 'DCA_ACCUMULATION', 'MEAN_REVERSION_GRID'],
+      allowedStrategies: ['MOMENTUM_BREAKOUT', 'TURTLE_BREAKOUT', 'STRADDLE_VOLATILITY', 'DCA_ACCUMULATION', 'MEAN_REVERSION_GRID'],
       targetRiskRewardRatio: 2.2,
       stopLossAtrMultiplier: 1.8,
       takeProfitAtrMultiplier: 4.0,
@@ -66,7 +66,7 @@ export const SECTOR_PROFILES: Record<SectorType, TradingAgentProtocolProfile> = 
     },
     alphaStrategy: {
       minConfluenceScore: 75,
-      allowedStrategies: ['MOMENTUM_BREAKOUT', 'DCA_ACCUMULATION'],
+      allowedStrategies: ['COLLAR_CYLINDER', 'CPPI_CAPITAL_FLOOR', 'VWAP_VALUE', 'TURTLE_BREAKOUT', 'MOMENTUM_BREAKOUT'],
       targetRiskRewardRatio: 2.6,
       stopLossAtrMultiplier: 1.4,
       takeProfitAtrMultiplier: 3.6,
@@ -110,7 +110,7 @@ export const SECTOR_PROFILES: Record<SectorType, TradingAgentProtocolProfile> = 
     },
     alphaStrategy: {
       minConfluenceScore: 68,
-      allowedStrategies: ['MOMENTUM_BREAKOUT', 'MEAN_REVERSION_GRID'],
+      allowedStrategies: ['MOMENTUM_BREAKOUT', 'SUPERTREND_VOLATILITY', 'ORB_BREAKOUT', 'COLLAR_CYLINDER', 'MEAN_REVERSION_GRID'],
       targetRiskRewardRatio: 2.5,
       stopLossAtrMultiplier: 1.5,
       takeProfitAtrMultiplier: 3.75,
@@ -154,7 +154,7 @@ export const SECTOR_PROFILES: Record<SectorType, TradingAgentProtocolProfile> = 
     },
     alphaStrategy: {
       minConfluenceScore: 70,
-      allowedStrategies: ['MEAN_REVERSION_GRID', 'DCA_ACCUMULATION'],
+      allowedStrategies: ['BOLLINGER_ZSCORE', 'PAIRS_STATARB', 'MEAN_REVERSION_GRID', 'DCA_ACCUMULATION', 'COLLAR_CYLINDER'],
       targetRiskRewardRatio: 2.0,
       stopLossAtrMultiplier: 1.6,
       takeProfitAtrMultiplier: 3.2,
@@ -198,7 +198,7 @@ export const SECTOR_PROFILES: Record<SectorType, TradingAgentProtocolProfile> = 
     },
     alphaStrategy: {
       minConfluenceScore: 66,
-      allowedStrategies: ['MOMENTUM_BREAKOUT', 'DCA_ACCUMULATION'],
+      allowedStrategies: ['TURTLE_BREAKOUT', 'TWAP_EXECUTION', 'RSI_CONNORS_REVERSAL', 'MOMENTUM_BREAKOUT', 'DCA_ACCUMULATION'],
       targetRiskRewardRatio: 2.4,
       stopLossAtrMultiplier: 1.6,
       takeProfitAtrMultiplier: 3.84,

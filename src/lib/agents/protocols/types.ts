@@ -24,12 +24,28 @@ export interface MarketIntelligenceProtocol {
   highVolThresholdPercent: number; // e.g. 2.5% ATR/Price
 }
 
+export type AlphaStrategyName =
+  | 'MOMENTUM_BREAKOUT'
+  | 'TURTLE_BREAKOUT'
+  | 'SUPERTREND_VOLATILITY'
+  | 'ORB_BREAKOUT'
+  | 'MEAN_REVERSION_GRID'
+  | 'BOLLINGER_ZSCORE'
+  | 'RSI_CONNORS_REVERSAL'
+  | 'PAIRS_STATARB'
+  | 'DCA_ACCUMULATION'
+  | 'COLLAR_CYLINDER'
+  | 'STRADDLE_VOLATILITY'
+  | 'TWAP_EXECUTION'
+  | 'VWAP_VALUE'
+  | 'CPPI_CAPITAL_FLOOR';
+
 /**
  * 2. Protokoll für Alpha Hypothesis & Signal Generator
  */
 export interface AlphaStrategyProtocol {
   minConfluenceScore: number; // 0 to 100
-  allowedStrategies: ('MOMENTUM_BREAKOUT' | 'MEAN_REVERSION_GRID' | 'DCA_ACCUMULATION')[];
+  allowedStrategies: AlphaStrategyName[];
   targetRiskRewardRatio: number; // e.g. 2.0 (2:1)
   stopLossAtrMultiplier: number; // e.g. 1.5
   takeProfitAtrMultiplier: number; // e.g. 3.0
@@ -100,6 +116,14 @@ export interface PerceptionState {
   macroSentimentScore?: number; // -100 to +100
   latestBreakingNews?: string;
   crisisVetoActive?: boolean;
+  globalMarket?: {
+    riskRegime: 'RISK_ON' | 'RISK_OFF' | 'VOLATILITY_EXPANSION' | 'NEUTRAL';
+    sentimentScore: number;
+    vixLevel: number;
+    sp500Change: number;
+    confluenceMultiplier: number;
+    summary?: string;
+  };
 }
 
 export interface AlphaHypothesis {

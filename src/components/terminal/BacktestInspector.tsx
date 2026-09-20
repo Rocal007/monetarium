@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { BacktestHygieneEngine } from '../../lib/backtesting/hygiene-engine';
-import { executeDcaStrategy } from '../../lib/strategies/dca-strategy';
-import { executeGridStrategy } from '../../lib/strategies/grid-strategy';
-import { executeMomentumStrategy } from '../../lib/strategies/momentum-strategy';
 import { BacktestResult, Candle, StrategyType } from '../../lib/types/trading';
+import {
+  getAllStrategies,
+  getStrategyExecutor,
+  getStrategyMetadata,
+} from '../../lib/strategies/strategy-registry';
 import { ShieldCheck, ShieldAlert, Play, Split, CheckCircle2, AlertTriangle, XOctagon } from 'lucide-react';
 
 interface BacktestInspectorProps {
@@ -14,25 +16,20 @@ interface BacktestInspectorProps {
 }
 
 export const BacktestInspector: React.FC<BacktestInspectorProps> = ({ candles, symbol }) => {
-  const [selectedStrategy, setSelectedStrategy] = useState<StrategyType>('MOMENTUM');
+  const [selectedStrategy, setSelectedStrategy] = useState<StrategyType>('TURTLE');
   const [inSampleRatio, setInSampleRatio] = useState(0.7); // 70% In-Sample, 30% Out-of-Sample
   const [feeRate, setFeeRate] = useState(0.001); // 0.1%
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
 
+  const allStrategies = getAllStrategies();
+
   const handleRunBacktest = () => {
     setIsRunning(true);
     setTimeout(() => {
-      let stratExecutor = executeMomentumStrategy;
-      let params: Record<string, number> = { fastEma: 9, slowEma: 21 };
-
-      if (selectedStrategy === 'GRID') {
-        stratExecutor = executeGridStrategy;
-        params = { lowerBound: 55000, upperBound: 72000, gridCount: 12 };
-      } else if (selectedStrategy === 'DCA') {
-        stratExecutor = executeDcaStrategy;
-        params = { intervalBars: 10, takeProfitPercent: 4.5 };
-      }
+      const stratExecutor = getStrategyExecutor(selectedStrategy);
+      const meta = getStrategyMetadata(selectedStrategy);
+      const params = meta.defaultParams;
 
       try {
         const res = BacktestHygieneEngine.runBacktest(
@@ -67,7 +64,7 @@ export const BacktestInspector: React.FC<BacktestInspectorProps> = ({ candles, s
             Backtesting-Hygiene & Overfitting-Guard
           </span>
           <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
-            Out-of-Sample Partitioning
+            Out-of-Sample Partitioning (14 Algorithmen)
           </span>
         </div>
 
@@ -90,15 +87,34 @@ export const BacktestInspector: React.FC<BacktestInspectorProps> = ({ candles, s
       {/* Configuration Strip */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-trading-bg p-3 rounded-lg border border-trading-border text-xs font-mono">
         <div>
-          <label className="block text-[10px] text-trading-muted mb-1">Strategie-Modell</label>
+          <label className="block text-[10px] text-trading-muted mb-1">Strategie-Modell (14 Algorithmen)</label>
           <select
             value={selectedStrategy}
             onChange={(e) => setSelectedStrategy(e.target.value as StrategyType)}
             className="w-full bg-trading-surface border border-trading-border rounded px-2.5 py-1 text-white focus:outline-none"
           >
-            <option value="MOMENTUM">Momentum (EMA 9/21 Cross + RSI)</option>
-            <option value="GRID">Grid Trading (Rebound-Raster)</option>
-            <option value="DCA">DCA Bot (Dip Accumulation & TP)</option>
+            <optgroup label="📈 Trend & Breakout">
+              <option value="MOMENTUM">EMA Momentum Breakout</option>
+              <option value="TURTLE">Turtle Donchian Breakout</option>
+              <option value="SUPERTREND">SuperTrend Dynamic Volatility</option>
+              <option value="ORB">Opening Range Breakout (ORB)</option>
+            </optgroup>
+            <optgroup label="🔄 Mean Reversion & Arbitrage">
+              <option value="GRID">Mean-Reversion Grid Bot</option>
+              <option value="BOLLINGER_REVERSION">Bollinger Z-Score Reversion</option>
+              <option value="RSI_CONNORS">Larry Connors RSI-2</option>
+              <option value="PAIRS_TRADING">Statistische Arbitrage (Pairs)</option>
+              <option value="DCA">Dollar-Cost Averaging (DCA)</option>
+            </optgroup>
+            <optgroup label="🛡️ Optionen & Derivate">
+              <option value="COLLAR_CYLINDER">Zylinder-Option (Collar / Fence)</option>
+              <option value="STRADDLE">Long Straddle Volatility Breakout</option>
+            </optgroup>
+            <optgroup label="⚡ Execution & Portfolioschutz">
+              <option value="TWAP">TWAP Execution Slicing</option>
+              <option value="VWAP">VWAP Value & Execution</option>
+              <option value="CPPI">CPPI Dynamic Portfolio Insurance</option>
+            </optgroup>
           </select>
         </div>
 

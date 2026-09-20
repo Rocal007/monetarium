@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:quant": "tsx src/lib/analytics/test-quant.ts"
+    "test:quant": "tsx src/lib/analytics/test-quant.ts",
+    "daemon": "tsx src/scripts/headless-runner.ts"
   },
   "dependencies": {
     "ccxt": "^4.5.77",

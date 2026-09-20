@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GcpIamNewsClient } from '../../../../lib/news/gcp-iam-client';
+import { forexFactoryClient } from '../../../../lib/news/forex-factory-client';
 import { MacroSentimentState } from '../../../../lib/types/news';
 
 export const dynamic = 'force-dynamic';
@@ -9,12 +10,15 @@ let currentCustomCrisis: any = null;
 
 /**
  * GET /api/news/world
- * Holt aggregierte Welt- & Finanznachrichten über den Google Cloud IAM Client.
- * Optional: ?crisis=true simuliert einen akuten Black-Swan-Schock zur Überprüfung der Notbremse.
- * Optional: ?reset=true hebt eine simulierte Krise wieder auf.
+ * Holt aggregierte Welt- & Finanznachrichten über Google Cloud IAM oder Forex Factory.
+ * Query-Parameter:
+ * - ?provider=forexfactory | gcp (Default: gcp)
+ * - ?crisis=true (simuliert einen akuten Black-Swan-Schock zur Notbremse-Prüfung)
+ * - ?reset=true (hebt eine simulierte Krise wieder auf)
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
+  const provider = searchParams.get('provider')?.toLowerCase();
   const triggerCrisis = searchParams.get('crisis') === 'true';
   const resetCrisis = searchParams.get('reset') === 'true';
 
@@ -27,9 +31,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const data: MacroSentimentState = await gcpClient.fetchWorldNews();
+    let data: MacroSentimentState;
 
-    // Falls Krise aktiv geschaltet wurde
+    if (provider === 'forexfactory' || provider === 'forex_factory') {
+      const calendar = await forexFactoryClient.fetchCalendar();
+      data = forexFactoryClient.convertToMacroSentimentState(calendar);
+    } else {
+      data = await gcpClient.fetchWorldNews();
+    }
+
+    // Falls Krise manuell aktiv geschaltet wurde
     if (currentCustomCrisis) {
       data.articles.unshift(currentCustomCrisis);
       data.crisisActive = true;
@@ -46,7 +57,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: err.message || 'Fehler beim Laden der Weltnachrichten via Google Cloud IAM',
+        error: err.message || 'Fehler beim Laden der Weltnachrichten',
       },
       { status: 500 }
     );

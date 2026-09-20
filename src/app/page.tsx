@@ -12,17 +12,19 @@ import { EngineSelectorModal } from '../components/terminal/EngineSelectorModal'
 import { TradingOrchestratorPanel } from '../components/terminal/TradingOrchestratorPanel';
 import { Cicero7QInspector } from '../components/terminal/Cicero7QInspector';
 import { BirkenbihlPlayground } from '../components/terminal/BirkenbihlPlayground';
-import { WorldNewsBar } from '../components/terminal/WorldNewsBar';
+import { WorldNewsBar, NewsProviderType } from '../components/terminal/WorldNewsBar';
 import { SectorFleetPanel } from '../components/terminal/SectorFleetPanel';
+import { GlobalMarketRadar } from '../components/terminal/GlobalMarketRadar';
+import { GlobalMarketScreener } from '../components/terminal/GlobalMarketScreener';
 import { calculateQuantMetrics } from '../lib/analytics/quant-metrics';
 import { fetchCryptoTicker, fetchLiveCryptoCandles } from '../lib/data/crypto-feed';
 import { generateRealisticCandles } from '../lib/data/mock-feed';
+import { fetchGlobalMarketOverview, fetchGlobalMarketScreenerData, resolveGlobalSymbol, loadUniversalCandles } from '../lib/data/global-market-feed';
+import { GlobalMarketScreenerData, GlobalMarketState } from '../lib/types/market';
 import { PortfolioManager } from '../lib/engine/portfolio-manager';
 import { VirtualExchange } from '../lib/engine/virtual-exchange';
 import { EngineManager, EngineType } from '../lib/engines/engine-manager';
-import { executeDcaStrategy } from '../lib/strategies/dca-strategy';
-import { executeGridStrategy } from '../lib/strategies/grid-strategy';
-import { executeMomentumStrategy } from '../lib/strategies/momentum-strategy';
+import { getStrategyExecutor } from '../lib/strategies/strategy-registry';
 import { TradingAgentOrchestrator } from '../lib/agents/trading-orchestrator';
 import { DEFAULT_PROTOCOL_PROFILE } from '../lib/agents/protocols/presets';
 import { OrchestratorCycleRecord, TradingAgentProtocolProfile } from '../lib/agents/protocols/types';
@@ -89,21 +91,42 @@ export default function TradingTerminalPage() {
     }
   };
 
-  // Google Cloud IAM Welt-News State
+  // Gesamtbörsenmarkt-Radar State (Weltmarkt-Indizes, VIX, Zinsen, Rohstoffe)
+  const [globalMarketState, setGlobalMarketState] = useState<GlobalMarketState>(() => fetchGlobalMarketOverview());
+  const [screenerData, setScreenerData] = useState<GlobalMarketScreenerData>(() => fetchGlobalMarketScreenerData());
+
+  const handleSelectUniversalSymbol = (sym: string) => {
+    const resolved = resolveGlobalSymbol(sym);
+    setSelectedSymbol(resolved.symbol);
+    setCurrentPrice(resolved.basePrice);
+  };
+
+  // Makro-News & Wirtschaftskalender State (GCP vs. Forex Factory)
+  const [newsProvider, setNewsProvider] = useState<NewsProviderType>('FOREX_FACTORY');
   const [macroNews, setMacroNews] = useState<MacroSentimentState | null>(null);
   const [isNewsLoading, setIsNewsLoading] = useState<boolean>(false);
 
-  // Weltnachrichten abrufen
-  const fetchWorldNews = async (params: { crisis?: boolean; reset?: boolean } = {}) => {
+  // Weltnachrichten / Kalender abrufen
+  const fetchWorldNews = async (
+    params: { crisis?: boolean; reset?: boolean; provider?: NewsProviderType } = {}
+  ) => {
     try {
       setIsNewsLoading(true);
-      const query = params.crisis ? '?crisis=true' : params.reset ? '?reset=true' : '';
+      const activeProv = params.provider ?? newsProvider;
+      const queryParts: string[] = [];
+
+      if (params.crisis) queryParts.push('crisis=true');
+      if (params.reset) queryParts.push('reset=true');
+      if (activeProv === 'FOREX_FACTORY') queryParts.push('provider=forexfactory');
+      else queryParts.push('provider=gcp');
+
+      const query = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
       const res = await fetch(`/api/news/world${query}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
           setMacroNews(json.data);
-          if (json.data.crisisActive) {
+          if (json.data.crisisActive || json.data.isBlackoutActive) {
             setIsCircuitTripped(true);
             setIsOrchestratorAutoPilot(false);
           }
@@ -121,10 +144,19 @@ export default function TradingTerminalPage() {
     const newsTimer = setInterval(() => {
       fetchWorldNews();
     }, 45000);
-    return () => clearInterval(newsTimer);
-  }, []);
 
-  // 1. Symbol-Daten laden (unterstützt Krypto, CCXT und Alpaca)
+    const marketTimer = setInterval(() => {
+      setGlobalMarketState(fetchGlobalMarketOverview());
+      setScreenerData(fetchGlobalMarketScreenerData());
+    }, 30000);
+
+    return () => {
+      clearInterval(newsTimer);
+      clearInterval(marketTimer);
+    };
+  }, [newsProvider]);
+
+  // 1. Symbol-Daten laden (unterstützt Krypto, CCXT, Alpaca und weltweites Universum)
   useEffect(() => {
     let isMounted = true;
 
@@ -171,24 +203,18 @@ export default function TradingTerminalPage() {
         }
       }
 
-      // Fallback: Realistische Simulation
+      // Fallback: Realistische Simulation jedes weltweiten Assets (Aktien, Indizes, Rohstoffe, Krypto)
       setIsLive(false);
-      const startP = selectedSymbol.includes('ETH') ? 3400 : selectedSymbol.includes('SOL') ? 145 : selectedSymbol.includes('SPY') ? 540 : 64000;
-      const simCandles = generateRealisticCandles({
-        symbol: selectedSymbol,
-        startPrice: startP,
-        count: 120,
-        volatility: 0.012,
-        trend: 0.0004,
-      });
+      const resolved = resolveGlobalSymbol(selectedSymbol);
+      const simCandles = loadUniversalCandles(selectedSymbol, resolved.basePrice, 120);
 
       if (isMounted) {
         setCandles(simCandles);
         const latest = simCandles[simCandles.length - 1].close;
         setCurrentPrice(latest);
         setChange24h(1.85);
-        setHigh24h(latest * 1.025);
-        setLow24h(latest * 0.975);
+        setHigh24h(Number((latest * 1.025).toFixed(2)));
+        setLow24h(Number((latest * 0.975).toFixed(2)));
         portfolioManagerRef.current.updateMarketPrice(selectedSymbol, latest);
         setPortfolioState(portfolioManagerRef.current.getPortfolio());
       }
@@ -230,9 +256,7 @@ export default function TradingTerminalPage() {
 
         // Bot-Signal Ausführung falls Basis-Bot aktiv
         if (activeBot) {
-          let strat = executeMomentumStrategy;
-          if (activeBot === 'GRID') strat = executeGridStrategy;
-          if (activeBot === 'DCA') strat = executeDcaStrategy;
+          const strat = getStrategyExecutor(activeBot);
 
           const signal = strat(
             updatedLast,
@@ -267,7 +291,8 @@ export default function TradingTerminalPage() {
             newClose,
             newCandles,
             portfolioManagerRef.current.getPortfolio(),
-            macroNews
+            macroNews,
+            globalMarketState
           );
           setLatestOrchestratorRecord(rec);
           setOrchestratorAuditTrail(orchestratorRef.current.getAuditTrail());
@@ -288,7 +313,7 @@ export default function TradingTerminalPage() {
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [selectedSymbol, activeBot, isOrchestratorAutoPilot, activeEngine, macroNews]);
+  }, [selectedSymbol, activeBot, isOrchestratorAutoPilot, activeEngine, macroNews, globalMarketState]);
 
   // Manuelle Order-Ausführung
   const handleSubmitOrder = (params: {
@@ -388,7 +413,8 @@ export default function TradingTerminalPage() {
       currentPrice,
       candles,
       portfolioManagerRef.current.getPortfolio(),
-      macroNews
+      macroNews,
+      globalMarketState
     );
     setLatestOrchestratorRecord(rec);
     setOrchestratorAuditTrail(orchestratorRef.current.getAuditTrail());
@@ -475,7 +501,7 @@ export default function TradingTerminalPage() {
       {/* Top Navigation & Status */}
       <Header
         selectedSymbol={selectedSymbol}
-        onSelectSymbol={setSelectedSymbol}
+        onSelectSymbol={handleSelectUniversalSymbol}
         currentPrice={currentPrice}
         change24h={change24h}
         high24h={high24h}
@@ -487,11 +513,36 @@ export default function TradingTerminalPage() {
         onOpenEngineModal={() => setIsEngineModalOpen(true)}
       />
 
-      {/* Google Cloud IAM Welt-News Bar */}
+      {/* GESAMTBÖRSENMARKT-RADAR (Global Intermarket Watch) */}
+      <div className="max-w-[1920px] mx-auto w-full px-4 pt-3">
+        <GlobalMarketRadar
+          globalMarket={globalMarketState}
+          selectedSymbol={selectedSymbol}
+          onSelectSymbol={handleSelectUniversalSymbol}
+          onRefresh={() => setGlobalMarketState(fetchGlobalMarketOverview())}
+        />
+      </div>
+
+      {/* GESAMTBÖRSENMARKT-SCREENER (Live Movers & 11 GICS Sektoren) */}
+      <div className="max-w-[1920px] mx-auto w-full px-4 pt-3">
+        <GlobalMarketScreener
+          screenerData={screenerData}
+          selectedSymbol={selectedSymbol}
+          onSelectSymbol={handleSelectUniversalSymbol}
+          defaultExpanded={true}
+        />
+      </div>
+
+      {/* Makro-News & Forex Factory Kalender Bar */}
       <div className="max-w-[1920px] mx-auto w-full px-4 pt-3">
         <WorldNewsBar
           macroNews={macroNews}
           isLoading={isNewsLoading}
+          activeProviderType={newsProvider}
+          onSelectProvider={(prov) => {
+            setNewsProvider(prov);
+            fetchWorldNews({ provider: prov });
+          }}
           onRefresh={() => fetchWorldNews()}
           onTriggerCrisisSimulation={() => fetchWorldNews({ crisis: true })}
           onResetCrisisSimulation={() => fetchWorldNews({ reset: true })}

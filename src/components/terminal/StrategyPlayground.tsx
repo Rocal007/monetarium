@@ -1,8 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Bot, Play, Square, Settings2, Webhook, Copy, Check } from 'lucide-react';
-import { StrategyType } from '../../lib/types/trading';
+import { Bot, Play, Square, Webhook, Copy, Check, TrendingUp, RefreshCw, Shield, Zap } from 'lucide-react';
+import { StrategyCategory, StrategyType } from '../../lib/types/trading';
+import {
+  getAllStrategies,
+  getStrategiesByCategory,
+  getStrategyMetadata,
+} from '../../lib/strategies/strategy-registry';
 
 interface StrategyPlaygroundProps {
   activeBot: StrategyType | null;
@@ -15,200 +20,159 @@ export const StrategyPlayground: React.FC<StrategyPlaygroundProps> = ({
   onStartBot,
   onStopBot,
 }) => {
-  const [selectedStrategy, setSelectedStrategy] = useState<StrategyType>('GRID');
-  const [gridLower, setGridLower] = useState(55000);
-  const [gridUpper, setGridUpper] = useState(72000);
-  const [gridCount, setGridCount] = useState(12);
-
-  const [dcaInterval, setDcaInterval] = useState(10);
-  const [dcaTakeProfit, setDcaTakeProfit] = useState(4.5);
-
-  const [fastEma, setFastEma] = useState(9);
-  const [slowEma, setSlowEma] = useState(21);
-
+  const [activeCategory, setActiveCategory] = useState<StrategyCategory>('TREND');
+  const [selectedStrategy, setSelectedStrategy] = useState<StrategyType>('TURTLE');
+  const [customParams, setCustomParams] = useState<Record<string, number>>({});
   const [copied, setCopied] = useState(false);
 
-  const handleStart = () => {
-    let params: Record<string, number> = {};
-    if (selectedStrategy === 'GRID') {
-      params = { lowerBound: gridLower, upperBound: gridUpper, gridCount };
-    } else if (selectedStrategy === 'DCA') {
-      params = { intervalBars: dcaInterval, takeProfitPercent: dcaTakeProfit };
-    } else if (selectedStrategy === 'MOMENTUM') {
-      params = { fastEma, slowEma, rsiOverbought: 70 };
+  const currentMetadata = getStrategyMetadata(selectedStrategy);
+  const strategiesInCurrentCategory = getStrategiesByCategory(activeCategory);
+
+  const handleCategorySelect = (cat: StrategyCategory) => {
+    setActiveCategory(cat);
+    const firstInCat = getStrategiesByCategory(cat)[0];
+    if (firstInCat) {
+      setSelectedStrategy(firstInCat.id);
+      setCustomParams({});
     }
-    onStartBot(selectedStrategy, params);
+  };
+
+  const handleParamChange = (key: string, value: number) => {
+    setCustomParams((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleStart = () => {
+    const finalParams = {
+      ...currentMetadata.defaultParams,
+      ...customParams,
+    };
+    onStartBot(selectedStrategy, finalParams);
   };
 
   const copyWebhookCode = () => {
-    const pineCode = `// TradingView Alert Webhook Payload für Monetarium Paper Trading\n{\n  "action": "{{strategy.order.action}}",\n  "symbol": "BTC/USDT",\n  "price": {{close}},\n  "orderType": "MARKET"\n}`;
+    const pineCode = `// TradingView Alert Webhook Payload für Monetarium Paper Trading\n{\n  "action": "{{strategy.order.action}}",\n  "symbol": "BTC/USDT",\n  "price": {{close}},\n  "orderType": "MARKET",\n  "strategy": "${selectedStrategy}"\n}`;
     navigator.clipboard.writeText(pineCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const getCategoryIcon = (cat: StrategyCategory) => {
+    switch (cat) {
+      case 'TREND':
+        return <TrendingUp className="w-3.5 h-3.5" />;
+      case 'MEAN_REVERSION':
+        return <RefreshCw className="w-3.5 h-3.5" />;
+      case 'OPTIONS':
+        return <Shield className="w-3.5 h-3.5" />;
+      case 'EXECUTION_RISK':
+        return <Zap className="w-3.5 h-3.5" />;
+    }
+  };
+
   return (
     <div className="bg-trading-surface border border-trading-border rounded-xl p-4 flex flex-col justify-between">
       <div>
-        <div className="flex items-center justify-between pb-3 border-b border-trading-border/60 mb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-trading-border/60 mb-3">
           <span className="font-bold text-sm text-white flex items-center gap-2">
             <Bot className="w-4 h-4 text-trading-accent" />
             Algorithmen & Bot-Playground
           </span>
-          <span className="text-[10px] font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
-            Pionex & TV-Logik
+          <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+            14 Quant-Algorithmen
           </span>
         </div>
 
-        {/* Strategy Selector */}
-        <div className="grid grid-cols-3 gap-1.5 p-1 bg-trading-bg rounded-lg border border-trading-border mb-4 text-xs font-mono">
-          <button
-            onClick={() => setSelectedStrategy('GRID')}
-            className={`py-1.5 rounded transition ${
-              selectedStrategy === 'GRID'
-                ? 'bg-trading-card text-trading-accent font-bold border border-trading-accent/30'
-                : 'text-trading-muted hover:text-white'
-            }`}
-          >
-            Grid Bot
-          </button>
-          <button
-            onClick={() => setSelectedStrategy('DCA')}
-            className={`py-1.5 rounded transition ${
-              selectedStrategy === 'DCA'
-                ? 'bg-trading-card text-trading-accent font-bold border border-trading-accent/30'
-                : 'text-trading-muted hover:text-white'
-            }`}
-          >
-            DCA Bot
-          </button>
-          <button
-            onClick={() => setSelectedStrategy('MOMENTUM')}
-            className={`py-1.5 rounded transition ${
-              selectedStrategy === 'MOMENTUM'
-                ? 'bg-trading-card text-trading-accent font-bold border border-trading-accent/30'
-                : 'text-trading-muted hover:text-white'
-            }`}
-          >
-            Momentum EMA
-          </button>
+        {/* 4 Category Tabs */}
+        <div className="grid grid-cols-4 gap-1 p-1 bg-trading-bg rounded-lg border border-trading-border mb-3 text-[11px] font-mono">
+          {(
+            [
+              { id: 'TREND', label: 'Trend' },
+              { id: 'MEAN_REVERSION', label: 'Mean Rev' },
+              { id: 'OPTIONS', label: 'Optionen' },
+              { id: 'EXECUTION_RISK', label: 'Execution' },
+            ] as const
+          ).map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => handleCategorySelect(cat.id)}
+              className={`py-1.5 px-1 rounded flex items-center justify-center gap-1 transition ${
+                activeCategory === cat.id
+                  ? 'bg-trading-card text-trading-accent font-bold border border-trading-accent/30 shadow-sm'
+                  : 'text-trading-muted hover:text-white'
+              }`}
+            >
+              {getCategoryIcon(cat.id)}
+              <span className="truncate">{cat.label}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Parameter Controls */}
-        <div className="space-y-3 font-mono text-xs mb-4">
-          {selectedStrategy === 'GRID' && (
-            <>
-              <div>
+        {/* Strategy Selector Pills */}
+        <div className="flex flex-wrap gap-1.5 mb-3 font-mono text-xs">
+          {strategiesInCurrentCategory.map((strat) => {
+            const isSelected = selectedStrategy === strat.id;
+            return (
+              <button
+                key={strat.id}
+                onClick={() => {
+                  setSelectedStrategy(strat.id);
+                  setCustomParams({});
+                }}
+                className={`px-2.5 py-1 rounded-md text-[11px] transition ${
+                  isSelected
+                    ? 'bg-sky-500/20 text-sky-300 border border-sky-500/50 font-bold'
+                    : 'bg-trading-card/40 text-trading-muted hover:text-white border border-trading-border/50'
+                }`}
+              >
+                {strat.name.split(' ')[0]} {strat.name.split(' ')[1] || ''}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected Strategy Info Card */}
+        <div className="bg-trading-card/50 border border-trading-border/60 rounded-lg p-3 mb-3 font-mono text-xs">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-bold text-white text-xs">{currentMetadata.name}</span>
+            <span className="text-[10px] bg-slate-800 text-sky-400 px-2 py-0.5 rounded border border-slate-700">
+              {currentMetadata.badge}
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-snug mb-2 font-sans">
+            {currentMetadata.description}
+          </p>
+          <div className="bg-slate-900/60 p-1.5 rounded text-[10px] text-trading-accent border border-trading-border/40 truncate">
+            Formel: <span className="text-white font-mono">{currentMetadata.formula}</span>
+          </div>
+        </div>
+
+        {/* Dynamic Parameter Controls */}
+        <div className="space-y-2.5 font-mono text-xs mb-4">
+          <span className="text-[10px] uppercase font-bold text-trading-muted tracking-wider block">
+            Parameter-Konfiguration
+          </span>
+
+          {currentMetadata.paramDefs.map((def) => {
+            const val = customParams[def.key] ?? def.defaultValue;
+            return (
+              <div key={def.key} className="bg-trading-card/30 p-2 rounded border border-trading-border/40">
                 <div className="flex justify-between text-[11px] text-trading-muted mb-1">
-                  <span>Untere Grenze (Lower Bound):</span>
-                  <span className="text-white font-bold">{gridLower.toLocaleString('de-DE')} €</span>
+                  <span>{def.label}:</span>
+                  <span className="text-white font-bold">{val}</span>
                 </div>
                 <input
                   type="range"
-                  min="40000"
-                  max="65000"
-                  step="500"
-                  value={gridLower}
-                  onChange={(e) => setGridLower(Number(e.target.value))}
+                  min={def.min ?? 1}
+                  max={def.max ?? (val > 1000 ? val * 2 : 100)}
+                  step={def.step ?? 1}
+                  value={val}
+                  onChange={(e) => handleParamChange(def.key, Number(e.target.value))}
                   className="w-full accent-sky-400"
                 />
               </div>
-
-              <div>
-                <div className="flex justify-between text-[11px] text-trading-muted mb-1">
-                  <span>Obere Grenze (Upper Bound):</span>
-                  <span className="text-white font-bold">{gridUpper.toLocaleString('de-DE')} €</span>
-                </div>
-                <input
-                  type="range"
-                  min="65000"
-                  max="90000"
-                  step="500"
-                  value={gridUpper}
-                  onChange={(e) => setGridUpper(Number(e.target.value))}
-                  className="w-full accent-sky-400"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between text-[11px] text-trading-muted mb-1">
-                  <span>Raster-Anzahl (Grid Lines):</span>
-                  <span className="text-white font-bold">{gridCount} Gitter</span>
-                </div>
-                <input
-                  type="range"
-                  min="4"
-                  max="30"
-                  value={gridCount}
-                  onChange={(e) => setGridCount(Number(e.target.value))}
-                  className="w-full accent-sky-400"
-                />
-              </div>
-            </>
-          )}
-
-          {selectedStrategy === 'DCA' && (
-            <>
-              <div>
-                <div className="flex justify-between text-[11px] text-trading-muted mb-1">
-                  <span>Kauf-Intervall (Kerzen):</span>
-                  <span className="text-white font-bold">Alle {dcaInterval} Balken</span>
-                </div>
-                <input
-                  type="range"
-                  min="2"
-                  max="30"
-                  value={dcaInterval}
-                  onChange={(e) => setDcaInterval(Number(e.target.value))}
-                  className="w-full accent-emerald-400"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between text-[11px] text-trading-muted mb-1">
-                  <span>Take-Profit Ziel:</span>
-                  <span className="text-white font-bold">+{dcaTakeProfit}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="20"
-                  step="0.5"
-                  value={dcaTakeProfit}
-                  onChange={(e) => setDcaTakeProfit(Number(e.target.value))}
-                  className="w-full accent-emerald-400"
-                />
-              </div>
-            </>
-          )}
-
-          {selectedStrategy === 'MOMENTUM' && (
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] text-trading-muted mb-1">Fast EMA</label>
-                  <input
-                    type="number"
-                    value={fastEma}
-                    onChange={(e) => setFastEma(Number(e.target.value))}
-                    className="w-full bg-trading-bg border border-trading-border rounded px-2.5 py-1.5 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-trading-muted mb-1">Slow EMA</label>
-                  <input
-                    type="number"
-                    value={slowEma}
-                    onChange={(e) => setSlowEma(Number(e.target.value))}
-                    className="w-full bg-trading-bg border border-trading-border rounded px-2.5 py-1.5 text-white"
-                  />
-                </div>
-              </div>
-              <p className="text-[10px] text-trading-muted">
-                Golden Cross Trigger bei Ausbruch mit RSI-Überkauft-Schutz (70).
-              </p>
-            </>
-          )}
+            );
+          })}
         </div>
 
         {/* Bot Runner Button */}
@@ -226,14 +190,14 @@ export const StrategyPlayground: React.FC<StrategyPlaygroundProps> = ({
             className="w-full py-2.5 rounded-lg bg-trading-accent hover:bg-sky-500 text-black font-black uppercase tracking-wider text-xs transition flex items-center justify-center gap-2 shadow-lg glow-accent"
           >
             <Play className="w-4 h-4 fill-black" />
-            {selectedStrategy} Bot im Paper Trading starten
+            {currentMetadata.name} im Paper Trading starten
           </button>
         )}
       </div>
 
       {/* TradingView Webhook Helper */}
       <div className="pt-3 mt-4 border-t border-trading-border/60">
-        <div className="flex items-center justify-between text-xs text-trading-muted mb-2">
+        <div className="flex items-center justify-between text-xs text-trading-muted mb-1">
           <span className="flex items-center gap-1.5 text-white font-bold text-[11px]">
             <Webhook className="w-3.5 h-3.5 text-emerald-400" />
             TradingView Webhook Hookup
@@ -247,7 +211,7 @@ export const StrategyPlayground: React.FC<StrategyPlaygroundProps> = ({
           </button>
         </div>
         <p className="text-[10px] text-trading-muted">
-          Pine Script Alerts können direkt per Webhook empfangen und mit Slippage-Simulation ausgeführt werden.
+          Unterstützt TradingView Webhook-Alerts für alle 14 Strategiemuster.
         </p>
       </div>
     </div>
