@@ -10,8 +10,8 @@ import { StrategyPlayground } from '../components/terminal/StrategyPlayground';
 import { BacktestInspector } from '../components/terminal/BacktestInspector';
 import { EngineSelectorModal } from '../components/terminal/EngineSelectorModal';
 import { TradingOrchestratorPanel } from '../components/terminal/TradingOrchestratorPanel';
-import { Cicero7QInspector } from '../components/terminal/Cicero7QInspector';
-import { BirkenbihlPlayground } from '../components/terminal/BirkenbihlPlayground';
+import { SearchVisibilityRadar } from '../components/terminal/SearchVisibilityRadar';
+import { RiskPositionCalculator } from '../components/terminal/RiskPositionCalculator';
 import { WorldNewsBar, NewsProviderType } from '../components/terminal/WorldNewsBar';
 import { SectorFleetPanel } from '../components/terminal/SectorFleetPanel';
 import { GlobalMarketRadar } from '../components/terminal/GlobalMarketRadar';
@@ -28,11 +28,9 @@ import { getStrategyExecutor } from '../lib/strategies/strategy-registry';
 import { TradingAgentOrchestrator } from '../lib/agents/trading-orchestrator';
 import { DEFAULT_PROTOCOL_PROFILE } from '../lib/agents/protocols/presets';
 import { OrchestratorCycleRecord, TradingAgentProtocolProfile } from '../lib/agents/protocols/types';
-import { Cicero7QRecord } from '../lib/types/cicero';
 import { MacroSentimentState } from '../lib/types/news';
 import { SectorType } from '../lib/types/sectors';
 import { getAllSectorAgents, getSectorAgent, getSectorProfile } from '../lib/agents/sectors/sector-fleet';
-import { transformCycleToCicero7Q, createSyntheticCicero7Q } from '../lib/agents/protocols/cicero-transformer';
 import { Candle, OrderSide, OrderType, StrategyType } from '../lib/types/trading';
 
 export default function TradingTerminalPage() {
@@ -68,10 +66,6 @@ export default function TradingTerminalPage() {
   const [latestOrchestratorRecord, setLatestOrchestratorRecord] = useState<OrchestratorCycleRecord | null>(null);
   const [orchestratorAuditTrail, setOrchestratorAuditTrail] = useState<OrchestratorCycleRecord[]>([]);
   const [isCircuitTripped, setIsCircuitTripped] = useState<boolean>(false);
-
-  // Cicero-7Q State
-  const [currentCiceroRecord, setCurrentCiceroRecord] = useState<Cicero7QRecord | null>(null);
-  const [ciceroHistory, setCiceroHistory] = useState<Cicero7QRecord[]>([]);
 
   // Sektor-Flotte State
   const [activeSector, setActiveSector] = useState<SectorType>('CRYPTO');
@@ -296,9 +290,6 @@ export default function TradingTerminalPage() {
           );
           setLatestOrchestratorRecord(rec);
           setOrchestratorAuditTrail(orchestratorRef.current.getAuditTrail());
-          const c7q = transformCycleToCicero7Q(rec, activeEngine);
-          setCurrentCiceroRecord(c7q);
-          setCiceroHistory((prev) => [c7q, ...prev.slice(0, 19)]);
           if (orchestratorRef.current.isCircuitTripped()) {
             setIsCircuitTripped(true);
             setIsOrchestratorAutoPilot(false);
@@ -333,18 +324,6 @@ export default function TradingTerminalPage() {
       stopPrice: params.stopLoss,
       currentMarketPrice: currentPrice,
     });
-
-    const c7q = createSyntheticCicero7Q({
-      symbol: selectedSymbol,
-      price: params.price || currentPrice,
-      amount: params.amount,
-      action: params.side,
-      stopLossPercent: params.stopLoss ? Number((Math.abs(currentPrice - params.stopLoss) / currentPrice * 100).toFixed(1)) : 2.0,
-      takeProfitMultiplier: params.takeProfit && params.stopLoss ? Number((Math.abs(params.takeProfit - currentPrice) / Math.max(1, Math.abs(currentPrice - params.stopLoss))).toFixed(1)) : 2.0,
-      venueName: activeEngine,
-    });
-    setCurrentCiceroRecord(c7q);
-    setCiceroHistory((prev) => [c7q, ...prev.slice(0, 19)]);
 
     setPortfolioState(portfolioManagerRef.current.getPortfolio());
     setPendingOrders(virtualExchangeRef.current.getPendingOrders());
@@ -418,16 +397,13 @@ export default function TradingTerminalPage() {
     );
     setLatestOrchestratorRecord(rec);
     setOrchestratorAuditTrail(orchestratorRef.current.getAuditTrail());
-    const c7q = transformCycleToCicero7Q(rec, activeEngine);
-    setCurrentCiceroRecord(c7q);
-    setCiceroHistory((prev) => [c7q, ...prev.slice(0, 19)]);
     setIsCircuitTripped(orchestratorRef.current.isCircuitTripped());
     setPortfolioState(portfolioManagerRef.current.getPortfolio());
     setPendingOrders(virtualExchangeRef.current.getPendingOrders());
   };
 
-  // Birkenbihl Simulator Trade Handler (Spieltrieb & Direkte Dekodierung)
-  const handleBirkenbihlTrade = (params: {
+  // Risk & Position Calculator Trade Handler (Kelly & CRV-Modellierung)
+  const handleRiskPositionTrade = (params: {
     side: OrderSide;
     type: OrderType;
     amount: number;
@@ -446,18 +422,6 @@ export default function TradingTerminalPage() {
       stopPrice: params.stopLoss,
       currentMarketPrice: currentPrice,
     });
-
-    const c7q = createSyntheticCicero7Q({
-      symbol: selectedSymbol,
-      price: params.price,
-      amount: params.amount,
-      action: params.side,
-      stopLossPercent: params.riskPercent,
-      takeProfitMultiplier: params.crvMultiplier,
-      venueName: activeEngine,
-    });
-    setCurrentCiceroRecord(c7q);
-    setCiceroHistory((prev) => [c7q, ...prev.slice(0, 19)]);
 
     setPortfolioState(portfolioManagerRef.current.getPortfolio());
     setPendingOrders(virtualExchangeRef.current.getPendingOrders());
@@ -591,11 +555,11 @@ export default function TradingTerminalPage() {
             onResetCircuitBreaker={handleResetCircuitBreaker}
           />
 
-          {/* Cicero-7Q Decision Inspector */}
-          <Cicero7QInspector
-            currentRecord={currentCiceroRecord}
-            history={ciceroHistory}
-            onSelectHistoricalRecord={(rec) => setCurrentCiceroRecord(rec)}
+          {/* Search Visibility & Attention Radar */}
+          <SearchVisibilityRadar
+            symbol={selectedSymbol}
+            currentPrice={currentPrice}
+            candles={candles}
           />
 
           {/* Quant Metrics Card */}
@@ -616,12 +580,12 @@ export default function TradingTerminalPage() {
 
         {/* Right Column: Order Placement & Algorithmic Playground */}
         <div className="lg:col-span-4 flex flex-col gap-4">
-          {/* Birkenbihl Neurodidaktik Playground */}
-          <BirkenbihlPlayground
+          {/* Risk & Position Sizing Calculator */}
+          <RiskPositionCalculator
             currentPrice={currentPrice}
             symbol={selectedSymbol}
             cashBalance={portfolioState.cash}
-            onExecuteSimulatedTrade={handleBirkenbihlTrade}
+            onExecuteSimulatedTrade={handleRiskPositionTrade}
           />
 
           {/* Order Placement Panel */}

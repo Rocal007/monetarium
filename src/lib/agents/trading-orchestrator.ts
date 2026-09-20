@@ -14,6 +14,7 @@ import { QuantEvaluatorAgent } from './subagents/quant-evaluator-agent';
 import { RiskGuardianAgent } from './subagents/risk-guardian-agent';
 import { MacroSentimentState } from '../types/news';
 import { GlobalMarketState } from '../types/market';
+import { SearchVisibilityEngine } from '../analytics/search-visibility-engine';
 
 export class TradingAgentOrchestrator {
   private activeProfile: TradingAgentProtocolProfile;
@@ -138,6 +139,16 @@ export class TradingAgentOrchestrator {
       perception.crisisVetoActive = macroNews.crisisActive;
     }
 
+    // Search Visibility & Google Trends Alpha anreichern
+    const searchMetrics = SearchVisibilityEngine.getMetrics(symbol, currentPrice, candles);
+    perception.searchVisibility = {
+      svi: searchMetrics.svi,
+      delta24h: searchMetrics.delta24h,
+      regime: searchMetrics.regime,
+      confidenceModifier: searchMetrics.confidenceModifier,
+      retailEuphoriaScore: searchMetrics.retailEuphoriaScore,
+    };
+
     // 2. Alpha Generator (Hypothesen-Generierung F(X))
     const hypothesis = AlphaStrategyAgent.evaluate(
       symbol,
@@ -155,6 +166,18 @@ export class TradingAgentOrchestrator {
       this.activeProfile.riskGuardian,
       this.consecutiveLosses
     );
+
+    // Search-Euphorie-Schutz: Veto gegen Long-Einstiege bei Retail-FOMO Peak
+    if (hypothesis.action === 'BUY' && searchMetrics.regime === 'EUPHORIA_OVERHEATED' && searchMetrics.retailEuphoriaScore >= 90) {
+      riskProof.passed = false;
+      riskProof.approvedAmount = 0;
+      riskProof.vetoReason = `Judikatives Veto (Search Euphorie Peak): Google Trends SVI bei ${searchMetrics.svi} (Retail-Euphorie ${searchMetrics.retailEuphoriaScore}%). Veto gegen Long-Käufe im Peak.`;
+      if (riskProof.invariantsChecked) {
+        riskProof.invariantsChecked.searchEuphoriaOk = false;
+      }
+    } else if (riskProof.invariantsChecked) {
+      riskProof.invariantsChecked.searchEuphoriaOk = true;
+    }
 
     // Judikative Notbremse bei Makro-Krisenmeldung oder Forex Factory News-Blackout
     if (macroNews?.isBlackoutActive) {
@@ -269,6 +292,16 @@ export class TradingAgentOrchestrator {
       perception.crisisVetoActive = macroNews.crisisActive;
     }
 
+    // Search Visibility & Google Trends Alpha anreichern
+    const searchMetrics = SearchVisibilityEngine.getMetrics(symbol, currentPrice, candles);
+    perception.searchVisibility = {
+      svi: searchMetrics.svi,
+      delta24h: searchMetrics.delta24h,
+      regime: searchMetrics.regime,
+      confidenceModifier: searchMetrics.confidenceModifier,
+      retailEuphoriaScore: searchMetrics.retailEuphoriaScore,
+    };
+
     // 2. Alpha Generator
     const hypothesis = AlphaStrategyAgent.evaluate(
       symbol,
@@ -286,6 +319,18 @@ export class TradingAgentOrchestrator {
       this.activeProfile.riskGuardian,
       this.consecutiveLosses
     );
+
+    // Search-Euphorie-Schutz: Veto gegen Long-Einstiege bei Retail-FOMO Peak
+    if (hypothesis.action === 'BUY' && searchMetrics.regime === 'EUPHORIA_OVERHEATED' && searchMetrics.retailEuphoriaScore >= 90) {
+      riskProof.passed = false;
+      riskProof.approvedAmount = 0;
+      riskProof.vetoReason = `Judikatives Veto (Search Euphorie Peak): Google Trends SVI bei ${searchMetrics.svi} (Retail-Euphorie ${searchMetrics.retailEuphoriaScore}%). Veto gegen Long-Käufe im Peak.`;
+      if (riskProof.invariantsChecked) {
+        riskProof.invariantsChecked.searchEuphoriaOk = false;
+      }
+    } else if (riskProof.invariantsChecked) {
+      riskProof.invariantsChecked.searchEuphoriaOk = true;
+    }
 
     if (macroNews?.isBlackoutActive) {
       riskProof.passed = false;

@@ -34,74 +34,50 @@ wobei:
 *   **Theorem (Energie-Reduktion):** Für Cache-Hitrate \( h \to 1 \) konvergiert der Rechenaufwand gegen die Cache-Komplexität \( O(C) \), wodurch redundante LLM-Inferenzaufrufe asymptotisch irrelevant werden:
     \[ E[T] \to O(C) \]
 
-### 3. Visibility Supremacy-Gleichung & Q_NEXUS
-Die totale Sichtbarkeit (\( V_{\text{NEXUS}} \)) unter Wahrung radikaler Objektivität (RO):
-\[ V_{\text{NEXUS}} = \left[ \sum_{i} (Sind_i \cdot Walg_i) \right] \cdot \lim_{\Delta_{\text{CoP}} \to 0} \left( \frac{\Omega_{\text{RO}}(L, J)}{\Delta_{\text{CoP}}(J) + \epsilon} \right) \]
-
-#### Der Q_NEXUS Qualitäts-Score:
-Jeder Build- und Generierungsprozess berechnet diesen Score:
-\[ Q_{NEXUS} = w_1 \cdot S + w_2 \cdot V + w_3 \cdot L + w_4 \cdot (S \cdot V \cdot L) \]
-mit \( \sum w_i = 1 \)
-*   **S (Syntax-Hülle-Score):** Technische Perfektion (JSON-LD, semantisches HTML5, Web Vitals) [0, 1].
-*   **V (Verifikations-Score):** Einhaltung rechtlicher Guardrails (Null Fehler in AXIOM & Judikative) [0, 1].
-*   **L (Lupos-Score):** Neurodidaktik und Lesbarkeit (Flesch-Reading-Ease) [0, 1].
-*   **\( S \cdot V \cdot L \):** Interaktions-Synergie-Term zur Belohnung ganzheitlicher Exzellenz.
-
----
-
-## II. NEURODIDAKTIK & COMMUNICATIONS KYBERNETIK
-
-### 1. Vera F. Birkenbihl-Gleichung (VFB-System-Modell)
-Gehirngerechte Informationsverarbeitung im UX- und Text-Design:
-\[ \mathbf{W_{\text{aktiv}} = \left( \sum_{i=1}^{n} (V_i \times A_i) \right) \cdot \left[ \frac{\text{Dekodierung}}{\text{Pauken} \to 0} \right] \cdot \eta_{\text{Spiel}}} \]
-*   \( \mathbf{W_{\text{aktiv}}} \): Aktives Wissens-Netz im Langzeitgedächtnis des Nutzers.
-*   \( V_i \times A_i \): Assoziations-Matrix aus Vorwissen (\( V \)) und Impulsen (\( A \)).
-*   \( \frac{\text{Dekodierung}}{\text{Pauken} \to 0} \): Lern-Effizienz-Quotient (intuitives Verständnis statt kognitiver Überlastung).
-*   \( \eta_{\text{Spiel}} \): Wirkungsgrad des Spieltriebs (interaktive Rechner, Gamification, Dopamin).
-
-### 2. Kognitives Dualitätsmodell
-*   **System 1 (Cognitive Fluency):** Reibungslose, blitzschnelle Orientierung durch visuelle Hierarchie, klare Affordance und Null Ladezeit.
-*   **System 2 (Rationaler Wächter):** Analytische Prüfung. Wird durch hohle Werbefloskeln („innovativ“, „einzigartig“) alarmiert und durch unbestechliche Sachlichkeit (\( \Omega_{\text{RO}} \)) beruhigt.
-
-### 3. Der 4D-Kommunikationsvektor
-\[ \vec{M} = \begin{pmatrix} M_{\text{Sach}} \\ M_{\text{Beziehung}} \\ M_{\text{Selbstoffenbarung}} \\ M_{\text{Appell}} \end{pmatrix} \]
-*   **Sachebene (\( M_{\text{Sach}} \)):** Reine Fakten, transparente Parameter (Radical Objectivity).
-*   **Beziehungsebene (\( M_{\text{Beziehung}} \)):** Lokale und fachliche Nähe (LINGUA-LOCA).
-*   **Selbstoffenbarung (\( M_{\text{Selbstoffenbarung}} \)):** Souveräne Autorität ohne defensive Floskeln.
-*   **Appellebene (\( M_{\text{Appell}} \)):** Klarer, logischer und barrierefreier Handlungsaufruf.
-
-### 4. Cicero-7Q-Vektor (7Q-Completeness-Check)
-Jede Inhalts- und UI-Komponente befüllt die 7 Säulen:
-*   **QUIS (Wer):** Entität, Verifizierung, Autorität, E-E-A-T.
-*   **QUID (Was):** Der exakte Gegenstand / Service ohne Verzierung.
-*   **UBI (Wo):** Räumliche oder situative Präzision.
-*   **QUIBUS AUXILIIS (Womit):** Verwendete Werkzeuge, Standards, Zertifikate.
-*   **CUR (Warum):** Logischer Handlungsdruck / Sachgrund.
-*   **QUOMODO (Wie):** Transparenter, nachvollziehbarer Ablauf.
-*   **QUANDO (Wann):** Zeitfenster, Gültigkeit, Aktualität.
+### 3. Search Visibility & Attention Alpha-Gleichung (SVI-Faktor)
+Die Suchsichtbarkeit (Search Volume Index / Web- & Google-Search-Trends) ist **kein Kriterium für die Web-App selbst**, sondern dient ausschließlich als **quantitativer Alpha-Faktor im Handelsmodell**:
+\[ V_{\text{Attention}}(A) = \left[ \sum_{i} (SVI_i \cdot w_i) \right] \cdot \Phi_{\text{regime}}(\text{PriceAction}, \Delta SVI) \]
+wobei:
+*   \( SVI_i \in [0, 100] \): Normalisierter Search Volume Index (Google Trends, Ticker-Suche, Krypto- & News-Suchintensität).
+*   \( w_i \): Asset- und zeithorizontspezifische Gewichtung.
+*   \( \Delta SVI \): 24h- / 7d-Veränderungsrate des Suchinteresses (Momentum).
+*   \( \Phi_{\text{regime}} \): Regimespezifischer Übertragungsoperator:
+    - **Trend-Bestätigung (Momentum Confirmation):** Technischer Breakout begleitet von steigendem Suchvolumen (\( \Delta SVI > +30\% \)) erhöht die Allokations-Konfidenz (\( \times 1.2 \)).
+    - **Retail-Euphorie / Blow-Off Top Detector:** Extremes Suchvolumen (\( SVI > 90 \)) bei stark überkauftem RSI (> 75) signalisiert Überhitzung / Retail-FOMO. Das System blockiert neue Longs und zieht Trailing-Stops nach.
+    - **Akkumulations-Divergenz:** Stille Kursakkumulation bei explodierendem Suchinteresse signalisiert bevorstehende Volatilitätsexpansion.
 
 ---
 
-## III. REGIONAL-LINGUISTIC ADAPTATION (LINGUA-LOCA)
+## II. QUANTITATIVE RISIKO- & PORTFOLIO-MATHEMATIK
 
-Der regionale Anpassungsoperator \( \Lambda_{\text{local}} \):
-\[ \Lambda_{\text{local}}(T_{\text{src}}, g) = \left[ (T_{\text{src}} \setminus F_{\text{sterile}}) \otimes M_{\text{vocab}}(g) \right] + \vec{S}_{\text{syntax}}(g) \cdot \eta_{\text{tonality}}(g) \]
+### 1. Risikoadjustierte Performance & Drawdown-Metriken
+Jeder Trading-Zyklus, Backtest und Bot wird kontinuierlich an institutionellen Risikokennzahlen gemessen:
+*   **Sharpe Ratio:** Risikoadjustierte Überrendite pro Volatilitätseinheit:
+    \[ \text{Sharpe} = \frac{E[R_p - R_f]}{\sigma_p} \]
+*   **Sortino Ratio:** Bestrafung ausschließlich von Abwärtsvolatilität (Downside Deviation):
+    \[ \text{Sortino} = \frac{E[R_p - R_f]}{\sigma_{\text{down}}} \]
+*   **Value at Risk (\( \text{VaR}_{99\%} \)) & Expected Shortfall (\( \text{CVaR} \)):** Maximaler erwarteter Verlust über einen Zeithorizont bei gegebenem Konfidenzniveau.
+*   **Maximum Drawdown (MDD) & Calmar Ratio:** Spitzen-zu-Tal-Verlustverhältnis zur Begrenzung von Ruin-Risiken.
 
-*   **Vermeidung steriler Floskeln:** Elimination von unpassenden Standardphrasen (\( F_{\text{sterile}} \)).
-*   **Branchenspezifisches Routing:** Angepasste Rollenbegriffe und Tonalität je nach Fachgebiet.
-*   **Rechtskonforme Transformation:** Vor dem Fixieren im Cache (\( C \)) zwingende Überprüfung durch Legislative (\( L \)) und Judikative (\( J \)):
-    \[ T_{\text{compliant}} = P_J \left( D_L \left( \Lambda_{\text{local}}(T_{\text{src}}, g) \right) \right) \]
+### 2. Position Sizing & Kelly-Kriterium
+Die optimale Positionsgröße wird nicht statisch geschätzt, sondern dynamisch nach Volatilität (ATR) und Kelly-Kapitalwachstum skaliert:
+\[ f^* = \frac{p \cdot b - q}{b} \]
+mit Fraktions-Dämpfung (\( f_{\text{safe}} = 0.25 \cdot f^* \)) zur Vermeidung von Volatility-Drag.
+
+### 3. Kognitive Ergonomie im Trading-Terminal
+*   **System 1 (Visuelle Reibungslosigkeit):** Sofortige Erfassbarkeit kritischer Marktzustände durch strikte Farbkodierung (Emerald = Buy/Gain, Rose = Sell/Loss, Sky/Amber = Regime/Attention).
+*   **System 2 (Analytische Tiefe):** Vollständige Offenlegung von Slippage, Orderbuch-Tiefe, Gebührenstruktur und mathematischem Audit-Trail bei jeder Orderplatzierung.
 
 ---
 
-## IV. ENTWICKLUNGS- & ARCHITEKTURGESETZE
+## III. ENTWICKLUNGS- & ARCHITEKTURGESETZE
 
 1.  **Das Protokoll IST der Agent:** Verhaltensweisen und Parameter werden deklarativ in Protokollen gesteuert; Code ist ein schlanker, typsicherer Executor.
 2.  **DTO-Driven Component Pattern:** Layout-Komponenten sind Presentational Dumb Components unter `src/components/`. Geschäftslogik und Datenaufbereitung erfolgen vorab in DTO-Buildern.
 3.  **Client-Isomorphismus:** Node.js-Module (`fs`, `dns`, `path`, `child_process`) dürfen niemals in clientseitig importierten Modulen aufgerufen werden.
 4.  **Zero-Byte Protection:** Zentrale Stylesheets und Assets dürfen niemals überschrieben oder geleert werden.
 5.  **Task Hygiene & Active Process Cleanup:** Alle Hintergrund-Prozesse, Daemons und temporären Worker müssen nach getaner Arbeit unverzüglich terminiert werden (`manage_task kill`).
-6.  **Core-System Integration:** Verknüpfung mit den zentralen Nexus-Core-Definitionen (`E:\Nexus-app\nexus`).
+6.  **Strikte Repository-Isolation:** Monetarium ist ein eigenständiges Finanzmarkt- und Quant-Projekt. Keine Übernahme von Landingpage-SEO-, AWG- oder Webseiten-Qualitätsmetriken.
 
 ---
 

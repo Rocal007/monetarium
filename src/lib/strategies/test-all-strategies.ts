@@ -4,13 +4,13 @@ import { PortfolioManager } from '../engine/portfolio-manager';
 import { BacktestHygieneEngine } from '../backtesting/hygiene-engine';
 import { StrategyType } from '../types/trading';
 
-console.log('=== TEST RUNNER: 14 KLASSISCHE & INSTITUTIONELLE TRADE-ALGORITHMEN ===\n');
+console.log('=== TEST RUNNER: 15 KLASSISCHE & INSTITUTIONELLE TRADE-ALGORITHMEN ===\n');
 
 // 1. Registry Vollständigkeit prüfen
 const allStrategies = getAllStrategies();
 console.log(`1. Prüfe Strategy Registry: ${allStrategies.length} Algorithmen registriert.`);
-if (allStrategies.length !== 14) {
-  throw new Error(`Fehler: Erwartet 14 Strategien, gefunden: ${allStrategies.length}`);
+if (allStrategies.length !== 15) {
+  throw new Error(`Fehler: Erwartet 15 Strategien, gefunden: ${allStrategies.length}`);
 }
 
 const expectedIds: StrategyType[] = [
@@ -28,6 +28,7 @@ const expectedIds: StrategyType[] = [
   'TWAP',
   'VWAP',
   'CPPI',
+  'SEARCH_ATTENTION_MOMENTUM',
 ];
 
 for (const id of expectedIds) {

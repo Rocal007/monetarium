@@ -60,5 +60,5 @@ Dieses Dokument bietet eine lückenlose Gesamtübersicht über alle vorhandenen 
 - **Trading-Chart (`ChartWidget.tsx`):** Multi-Timeframe Candlestick-Charts.
 - **Order Panel & Position Tracker (`OrderPanel.tsx`, `PositionTracker.tsx`):** Ausführung und lückenlose PnL-Überwachung.
 - **Sector Fleet Panel (`SectorFleetPanel.tsx`):** Übersicht der Allokation über Tech, Energie, Finanzen und Krypto.
-- **Backtest Inspector (`BacktestInspector.tsx`):** Historische Validierung mit Performance-Graphen.
-- **Cicero 7Q & Birkenbihl Playground (`Cicero7QInspector.tsx`, `BirkenbihlPlayground.tsx`):** Systematische neurodidaktische Qualitätsprüfung aller Signale und UI-Zustände.
+- **Search Visibility Radar & Attention Inspector (`SearchVisibilityRadar.tsx`):** Echtzeit-Überwachung von Web- und Google-Trends Suchsichtbarkeit (SVI), Momentum-Bestätigung und Retail-Euphorie-Filter.
+- **Risk & Position Sizing Calculator (`RiskPositionCalculator.tsx`):** Mathematische Positionsgrößen- und CRV-Berechnung nach Volatilität und Kelly-Kriterium.

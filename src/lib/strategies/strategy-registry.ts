@@ -13,6 +13,7 @@ import { executeCollarCylinderStrategy } from './collar-strategy';
 import { executeStraddleStrategy } from './straddle-strategy';
 import { executeTwapStrategy, executeVwapStrategy } from './execution-twap-vwap';
 import { executeCppiStrategy } from './cppi-strategy';
+import { executeSearchAttentionStrategy, SEARCH_ATTENTION_METADATA } from './search-attention-strategy';
 
 export interface StrategyRegistryEntry {
   metadata: StrategyMetadata;
@@ -258,6 +259,10 @@ export const STRATEGY_REGISTRY: Record<StrategyType, StrategyRegistryEntry> = {
       ],
     },
     executor: executeCppiStrategy,
+  },
+  SEARCH_ATTENTION_MOMENTUM: {
+    metadata: SEARCH_ATTENTION_METADATA,
+    executor: executeSearchAttentionStrategy,
   },
 };
 

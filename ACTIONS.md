@@ -22,3 +22,26 @@ Dieses Protokoll dokumentiert chronologisch alle Außenkommunikationen (WhatsApp
 - **Verknüpfte Aufgaben:** Systemdokumentation & Partner-Abstimmung
 - **Status:** Gesendet ✅
 
+### [2026-09-20 20:53] WhatsApp – Joachim Nauen (Jochen, +43 650 4542261)
+- **Kanal:** WhatsApp (jochen-agent / wa-hub.service)
+- **Empfänger:** Joachim Nauen (Jochen)
+- **Kontext:** Bereitstellung des aktuellen Versions-Links
+- **Inhalt:** Direkter Link zur aktuellen Version von Monetarium (https://github.com/Rocal007/monetarium) übermittelt inkl. Verweis auf die Dokumentation und Quellcodes. Mandat für zukünftige automatische Link-Einbindung in `jochen-agent` und `wa-hub-config.json` verankert.
+- **Verknüpfte Aufgaben:** Versions-Transparenz & Link-Mandat
+- **Status:** Gesendet ✅
+
+### [2026-09-20 20:55] WhatsApp – Joachim Nauen (Jochen, +43 650 4542261)
+- **Kanal:** WhatsApp (jochen-agent / wa-hub.service)
+- **Empfänger:** Joachim Nauen (Jochen)
+- **Kontext:** Bereitstellung des fertigen Vercel Live-Links
+- **Inhalt:** Live-Link zur fertigen Vercel-Webanwendung von Monetarium (https://monetarium.vercel.app) übermittelt (inkl. Verweis auf den 3D-Kran-Viewer https://headings-3d.vercel.app).
+- **Verknüpfte Aufgaben:** Vercel-Deployment & Live-Demo
+- **Status:** Gesendet ✅
+
+### [2026-09-20 21:38] WhatsApp – Joachim Nauen (Jochen, +43 650 4542261)
+- **Kanal:** WhatsApp (jochen-agent / wa-hub.service)
+- **Empfänger:** Joachim Nauen (Jochen)
+- **Kontext:** Klarstellung zur Umsetzung / Entwurf
+- **Inhalt:** "Servus Jochen, kurze Klarstellung: Ich will die Umsetzung genau so haben, wie ich es dir zuletzt geschickt habe."
+- **Verknüpfte Aufgaben:** Abstimmung mit Projektpartner Jochen
+- **Status:** Gesendet ✅

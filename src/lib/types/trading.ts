@@ -124,7 +124,8 @@ export type StrategyType =
   | 'STRADDLE'
   | 'TWAP'
   | 'VWAP'
-  | 'CPPI';
+  | 'CPPI'
+  | 'SEARCH_ATTENTION_MOMENTUM';
 
 export interface StrategyParamDefinition {
   key: string;
@@ -154,4 +155,10 @@ export interface StrategySignal {
   amount?: number;
   confidence: number;
   reason: string;
+  searchAttention?: {
+    svi: number;
+    delta24h: number;
+    regime: string;
+    modifier: number;
+  };
 }

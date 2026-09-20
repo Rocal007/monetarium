@@ -38,7 +38,8 @@ export type AlphaStrategyName =
   | 'STRADDLE_VOLATILITY'
   | 'TWAP_EXECUTION'
   | 'VWAP_VALUE'
-  | 'CPPI_CAPITAL_FLOOR';
+  | 'CPPI_CAPITAL_FLOOR'
+  | 'SEARCH_ATTENTION_MOMENTUM';
 
 /**
  * 2. Protokoll für Alpha Hypothesis & Signal Generator
@@ -124,6 +125,13 @@ export interface PerceptionState {
     confluenceMultiplier: number;
     summary?: string;
   };
+  searchVisibility?: {
+    svi: number;
+    delta24h: number;
+    regime: string;
+    confidenceModifier: number;
+    retailEuphoriaScore: number;
+  };
 }
 
 export interface AlphaHypothesis {
@@ -137,6 +145,12 @@ export interface AlphaHypothesis {
   confluenceScore: number; // 0-100
   strategyUsed: string;
   rationale: string;
+  searchAttention?: {
+    svi: number;
+    delta24h: number;
+    regime: string;
+    modifier: number;
+  };
 }
 
 export interface RiskValidationProof {
@@ -152,6 +166,7 @@ export interface RiskValidationProof {
     riskSizeOk: boolean;
     cooldownOk: boolean;
     macroNewsOk?: boolean;
+    searchEuphoriaOk?: boolean;
   };
 }
 

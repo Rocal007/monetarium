@@ -2,20 +2,18 @@
 
 import React, { useState, useMemo } from 'react';
 import {
-  Sparkles,
   ShieldCheck,
   TrendingUp,
   Sliders,
   DollarSign,
-  HelpCircle,
   PlayCircle,
   Scale,
-  Brain,
   Zap,
+  Calculator,
 } from 'lucide-react';
 import { OrderSide, OrderType } from '../../lib/types/trading';
 
-interface BirkenbihlPlaygroundProps {
+interface RiskPositionCalculatorProps {
   currentPrice: number;
   symbol: string;
   cashBalance: number;
@@ -31,7 +29,7 @@ interface BirkenbihlPlaygroundProps {
   }) => void;
 }
 
-export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
+export const RiskPositionCalculator: React.FC<RiskPositionCalculatorProps> = ({
   currentPrice,
   symbol,
   cashBalance,
@@ -42,7 +40,7 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
   const [riskTolerancePercent, setRiskTolerancePercent] = useState<number>(2.0); // Stop-Loss Puffer in %
   const [crvMultiplier, setCrvMultiplier] = useState<number>(2.5); // Chance-Risiko Multiplikator (1:2.5)
 
-  // 2. Mathematische Ableitung (Intuitive Dekodierung)
+  // 2. Mathematische Ableitung (Kelly & Risiko-Allokation)
   const calculations = useMemo(() => {
     const capital = Math.min(tradeCapital, cashBalance > 0 ? cashBalance : tradeCapital);
     const amount = currentPrice > 0 ? capital / currentPrice : 0;
@@ -58,20 +56,11 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
     const maxLossAmount = amount * stopLossDistance;
     const targetGainAmount = amount * takeProfitDistance;
 
-    // Birkenbihl-Urteil & Ampel
-    let rating = 'EXCELLENT';
-    let ratingText = 'Hervorragend: Der Zielgewinn übertrifft das Verlustrisiko um mehr als das Doppelte.';
-    let ratingColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
-
-    if (crvMultiplier < 1.5) {
-      rating = 'POOR';
-      ratingText = 'Ungünstig: Das Risiko steht in keinem gesunden Verhältnis zum Ertrag (Pauken-Gefahr).';
-      ratingColor = 'text-rose-400 bg-rose-500/10 border-rose-500/30';
-    } else if (crvMultiplier < 2.0) {
-      rating = 'FAIR';
-      ratingText = 'Solide: Brauchbares Verhältnis, erfordert aber strikte Ausstiegsdisziplin.';
-      ratingColor = 'text-amber-400 bg-amber-500/10 border-amber-500/30';
-    }
+    // Kelly-Kriterium Näherung (bei 55% Winrate und gewähltem CRV)
+    const p = 0.55;
+    const b = crvMultiplier;
+    const kellyFraction = Math.max(0, Math.min(0.25, (p * b - (1 - p)) / b));
+    const recommendedCapital = (cashBalance > 0 ? cashBalance : 10000) * kellyFraction;
 
     return {
       capital,
@@ -80,20 +69,21 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
       takeProfitPrice,
       maxLossAmount,
       targetGainAmount,
-      rating,
-      ratingText,
-      ratingColor,
+      recommendedCapital,
+      kellyFraction,
     };
-  }, [currentPrice, tradeCapital, riskTolerancePercent, crvMultiplier, cashBalance]);
+  }, [tradeCapital, cashBalance, currentPrice, riskTolerancePercent, crvMultiplier]);
 
-  const handleSimulateClick = () => {
+  const handleQuickExecute = (side: OrderSide) => {
+    if (currentPrice <= 0 || calculations.amount <= 0) return;
+
     onExecuteSimulatedTrade({
-      side: 'BUY',
+      side,
       type: 'MARKET',
-      amount: Number(calculations.amount.toFixed(4)),
+      amount: calculations.amount,
       price: currentPrice,
-      stopLoss: Number(calculations.stopLossPrice.toFixed(2)),
-      takeProfit: Number(calculations.takeProfitPrice.toFixed(2)),
+      stopLoss: calculations.stopLossPrice,
+      takeProfit: calculations.takeProfitPrice,
       riskPercent: riskTolerancePercent,
       crvMultiplier,
     });
@@ -101,37 +91,40 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
 
   return (
     <div className="bg-trading-surface border border-trading-border rounded-xl p-4 font-mono flex flex-col gap-4 shadow-sm">
-      {/* Header mit Birkenbihl-Formel */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-trading-border/60">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-pink-500/10 border border-pink-500/30 text-pink-400">
-            <Brain className="w-5 h-5" />
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-trading-border/60">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+            <Calculator className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm text-white">Birkenbihl Neurodidaktik Playground</span>
-              <span className="text-[10px] bg-pink-500/20 text-pink-300 px-1.5 py-0.5 rounded border border-pink-500/30">
-                η_Spiel &gt; 1
+              <span className="font-bold text-xs text-white">Risk & Position Calculator</span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-500/30 font-semibold">
+                Kelly f* & CRV
               </span>
             </div>
             <p className="text-[10px] text-trading-muted">
-              W_aktiv = Assoziation · [Dekodierung / Pauken → 0] · Spieltrieb
+              Dynamische Allokation & Chance-Risiko-Modellierung für {symbol}
             </p>
           </div>
         </div>
-        <div className="text-[11px] text-trading-muted">
-          Symbol: <span className="text-white font-bold">{symbol}</span>
+        <div className="text-right">
+          <span className="text-[10px] text-trading-muted block">Verfügbar:</span>
+          <span className="text-xs font-bold text-white">
+            {cashBalance.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $
+          </span>
         </div>
       </div>
 
-      {/* 3 Interaktive Schieberegler */}
-      <div className="flex flex-col gap-3.5 bg-trading-card/40 border border-trading-border/50 rounded-lg p-3.5">
-        {/* Slider 1: Kapitaleinsatz */}
+      {/* Regler-Sektion */}
+      <div className="space-y-3.5 bg-trading-bg p-3 rounded-lg border border-trading-border">
+        {/* Slider 1: Kapital */}
         <div className="flex flex-col gap-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-trading-muted flex items-center gap-1">
-              <DollarSign className="w-3.5 h-3.5 text-sky-400" />
-              1. Geplanter Kapitaleinsatz:
+              <DollarSign className="w-3.5 h-3.5 text-trading-accent" />
+              1. Positionskapital:
             </span>
             <span className="font-bold text-white font-mono">{tradeCapital} $</span>
           </div>
@@ -139,24 +132,24 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
             type="range"
             min={50}
             max={Math.max(2000, Math.floor(cashBalance))}
-            step={50}
+            step={25}
             value={tradeCapital}
             onChange={(e) => setTradeCapital(Number(e.target.value))}
-            className="w-full accent-sky-500 cursor-pointer h-1.5 bg-slate-700 rounded-lg appearance-none"
+            className="w-full accent-trading-accent cursor-pointer h-1.5 bg-slate-700 rounded-lg appearance-none"
           />
           <div className="flex justify-between text-[10px] text-trading-muted">
-            <span>50 $ (Mikro)</span>
-            <span>Verfügbares Cash: {cashBalance.toFixed(0)} $</span>
+            <span>50 $</span>
+            <span>Kelly Empfehlung: ~{calculations.recommendedCapital.toFixed(0)} $</span>
             <span>{Math.max(2000, Math.floor(cashBalance))} $</span>
           </div>
         </div>
 
-        {/* Slider 2: Risikotoleranz / Stop-Loss Puffer */}
+        {/* Slider 2: Stop-Loss Puffer */}
         <div className="flex flex-col gap-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-trading-muted flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
-              2. Reißleine / Stop-Loss Puffer:
+              2. Stop-Loss Puffer:
             </span>
             <span className="font-bold text-rose-400 font-mono">-{riskTolerancePercent.toFixed(1)} %</span>
           </div>
@@ -170,7 +163,7 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
             className="w-full accent-rose-500 cursor-pointer h-1.5 bg-slate-700 rounded-lg appearance-none"
           />
           <div className="flex justify-between text-[10px] text-trading-muted">
-            <span>0.5% (Eng/Konservativ)</span>
+            <span>0.5% (Eng)</span>
             <span>2.0% (Standard)</span>
             <span>6.0% (Weit/Volatil)</span>
           </div>
@@ -181,7 +174,7 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
           <div className="flex justify-between text-xs">
             <span className="text-trading-muted flex items-center gap-1">
               <Scale className="w-3.5 h-3.5 text-emerald-400" />
-              3. Zielrendite (Chance-Risiko):
+              3. Zielrendite (CRV):
             </span>
             <span className="font-bold text-emerald-400 font-mono">1 : {crvMultiplier.toFixed(1)}</span>
           </div>
@@ -202,12 +195,12 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
         </div>
       </div>
 
-      {/* Birkenbihl Direkte Dekodierung (Große, klare Werte ohne Pauken) */}
+      {/* Ergebnis-Vorschau */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
         {/* Worst Case */}
         <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3 flex flex-col gap-1">
           <span className="text-[10px] text-rose-300 uppercase font-bold tracking-wider">
-            Maximaler Verlust (Stop-Loss)
+            Maximaler Verlust (SL)
           </span>
           <span className="text-xl font-bold text-rose-400 font-mono">
             -{calculations.maxLossAmount.toFixed(2)} $
@@ -220,7 +213,7 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
         {/* Best Case */}
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 flex flex-col gap-1">
           <span className="text-[10px] text-emerald-300 uppercase font-bold tracking-wider">
-            Zielgewinn (Take-Profit)
+            Ziel-Gewinn (TP)
           </span>
           <span className="text-xl font-bold text-emerald-400 font-mono">
             +{calculations.targetGainAmount.toFixed(2)} $
@@ -230,38 +223,40 @@ export const BirkenbihlPlayground: React.FC<BirkenbihlPlaygroundProps> = ({
           </span>
         </div>
 
-        {/* Netto Positionsgröße */}
-        <div className="bg-sky-500/10 border border-sky-500/20 rounded-lg p-3 flex flex-col gap-1">
-          <span className="text-[10px] text-sky-300 uppercase font-bold tracking-wider">
-            Positionsgröße (Virtuell)
+        {/* Positionsgröße */}
+        <div className="bg-trading-bg border border-trading-border rounded-lg p-3 flex flex-col gap-1">
+          <span className="text-[10px] text-trading-muted uppercase font-bold tracking-wider">
+            Positionsgröße
           </span>
-          <span className="text-xl font-bold text-sky-400 font-mono">
-            {calculations.amount.toFixed(4)} {symbol.split('/')[0]}
+          <span className="text-xl font-bold text-white font-mono">
+            {calculations.amount < 1 ? calculations.amount.toFixed(4) : calculations.amount.toFixed(2)}
           </span>
-          <span className="text-[10px] text-trading-muted">
-            Kapitalwert: {calculations.capital.toFixed(2)} $
+          <span className="text-[10px] text-sky-400 truncate">
+            {symbol} @ {currentPrice.toFixed(2)} $
           </span>
         </div>
       </div>
 
-      {/* Birkenbihl-Urteil & Ampel */}
-      <div className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${calculations.ratingColor}`}>
-        <Sparkles className="w-4 h-4 mt-0.5 shrink-0" />
-        <div className="flex flex-col gap-0.5">
-          <span className="font-bold">Neurodidaktische Bewertung:</span>
-          <p className="text-[11px] leading-relaxed font-sans">{calculations.ratingText}</p>
-        </div>
-      </div>
+      {/* Ausführungs-Buttons */}
+      <div className="flex gap-3 pt-1">
+        <button
+          onClick={() => handleQuickExecute('BUY')}
+          disabled={currentPrice <= 0 || calculations.amount <= 0}
+          className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/30 cursor-pointer"
+        >
+          <PlayCircle className="w-4 h-4" />
+          Long Order Ausführen
+        </button>
 
-      {/* Simulations-Button */}
-      <button
-        onClick={handleSimulateClick}
-        disabled={calculations.capital <= 0}
-        className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <PlayCircle className="w-4 h-4" />
-        <span>Trade mit diesen Schutzschranken simulieren (Order senden)</span>
-      </button>
+        <button
+          onClick={() => handleQuickExecute('SELL')}
+          disabled={currentPrice <= 0 || calculations.amount <= 0}
+          className="flex-1 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-lg shadow-rose-950/30 cursor-pointer"
+        >
+          <PlayCircle className="w-4 h-4" />
+          Short / Sell Ausführen
+        </button>
+      </div>
     </div>
   );
 };

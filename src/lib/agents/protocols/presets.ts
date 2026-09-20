@@ -64,7 +64,7 @@ export const PROTOCOL_PRESETS: Record<string, TradingAgentProtocolProfile> = {
     },
     alphaStrategy: {
       minConfluenceScore: 65,
-      allowedStrategies: ['MOMENTUM_BREAKOUT', 'TURTLE_BREAKOUT', 'BOLLINGER_ZSCORE', 'COLLAR_CYLINDER', 'MEAN_REVERSION_GRID', 'DCA_ACCUMULATION'],
+      allowedStrategies: ['MOMENTUM_BREAKOUT', 'TURTLE_BREAKOUT', 'SEARCH_ATTENTION_MOMENTUM', 'BOLLINGER_ZSCORE', 'COLLAR_CYLINDER', 'MEAN_REVERSION_GRID', 'DCA_ACCUMULATION'],
       targetRiskRewardRatio: 2.0,
       stopLossAtrMultiplier: 1.8,
       takeProfitAtrMultiplier: 3.6,
