@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "test:quant": "tsx src/lib/analytics/test-quant.ts",
+    "test:agents": "tsx src/lib/agents/test-agent-strategies.ts",
+    "backtest:turbo": "tsx src/scripts/backtest-alpha-turbo.ts",
     "daemon": "tsx src/scripts/headless-runner.ts"
   },
   "dependencies": {

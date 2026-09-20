@@ -98,6 +98,7 @@ export const BacktestInspector: React.FC<BacktestInspectorProps> = ({ candles, s
               <option value="TURTLE">Turtle Donchian Breakout</option>
               <option value="SUPERTREND">SuperTrend Dynamic Volatility</option>
               <option value="ORB">Opening Range Breakout (ORB)</option>
+              <option value="SEARCH_ATTENTION_MOMENTUM">Search Visibility Momentum (SVI Alpha)</option>
             </optgroup>
             <optgroup label="🔄 Mean Reversion & Arbitrage">
               <option value="GRID">Mean-Reversion Grid Bot</option>
