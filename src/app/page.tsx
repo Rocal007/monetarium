@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Header } from '../components/terminal/Header';
 import { ChartWidget } from '../components/terminal/ChartWidget';
 import { OrderPanel } from '../components/terminal/OrderPanel';
@@ -16,6 +16,7 @@ import { WorldNewsBar, NewsProviderType } from '../components/terminal/WorldNews
 import { SectorFleetPanel } from '../components/terminal/SectorFleetPanel';
 import { GlobalMarketRadar } from '../components/terminal/GlobalMarketRadar';
 import { GlobalMarketScreener } from '../components/terminal/GlobalMarketScreener';
+import { MacroHorizonInspector } from '../components/terminal/MacroHorizonInspector';
 import { calculateQuantMetrics } from '../lib/analytics/quant-metrics';
 import { fetchCryptoTicker, fetchLiveCryptoCandles } from '../lib/data/crypto-feed';
 import { generateRealisticCandles } from '../lib/data/mock-feed';
@@ -31,11 +32,15 @@ import { OrchestratorCycleRecord, TradingAgentProtocolProfile } from '../lib/age
 import { MacroSentimentState } from '../lib/types/news';
 import { SectorType } from '../lib/types/sectors';
 import { getAllSectorAgents, getSectorAgent, getSectorProfile } from '../lib/agents/sectors/sector-fleet';
-import { Candle, OrderSide, OrderType, StrategyType } from '../lib/types/trading';
+import { Candle, OrderSide, OrderType, Portfolio, StrategyType, OperatingMode, CopilotProposal, AutopilotStakeConfig, DEFAULT_AUTOPILOT_STAKE } from '../lib/types/trading';
 import { dataIntegrityAgent } from '../lib/agents/subagents/data-integrity-agent';
 import { DataSentinelModal } from '../components/terminal/DataSentinelModal';
 import { DataSentinelOverallState } from '../lib/types/data-integrity';
 import { SpeedTraderArcadeModal } from '../components/terminal/SpeedTraderArcadeModal';
+import { CryptoAutoInvestModal } from '../components/terminal/CryptoAutoInvestModal';
+import { executeCryptoBasket, evaluateAutonomousCryptoDecision } from '../lib/crypto/crypto-allocator';
+import { CryptoBasketExecutionResult, CryptoBasketPlan } from '../lib/types/crypto-allocator';
+import { generateOmniMarketPlan, executeOmniMarketBasket } from '../lib/engine/omni-market-allocator';
 
 export default function TradingTerminalPage() {
   const [selectedSymbol, setSelectedSymbol] = useState('BTC/USDT');
@@ -45,18 +50,55 @@ export default function TradingTerminalPage() {
   const [high24h, setHigh24h] = useState(65800);
   const [low24h, setLow24h] = useState(63200);
   const [isLive, setIsLive] = useState(false);
+  const [chartTimeframe, setChartTimeframe] = useState<string>('1h');
+  const [chartViewMode, setChartViewMode] = useState<'SPLIT' | 'CHART_ONLY' | 'HORIZON_ONLY'>('SPLIT');
 
   // Engine Manager State
   const engineManagerRef = useRef<EngineManager>(new EngineManager());
   const [activeEngine, setActiveEngine] = useState<EngineType>('SIMULATED_PAPER');
   const [isEngineModalOpen, setIsEngineModalOpen] = useState(false);
   const [isArcadeModalOpen, setIsArcadeModalOpen] = useState(false);
+  const [isCryptoAutoInvestModalOpen, setIsCryptoAutoInvestModalOpen] = useState(false);
 
   // Portfolio & Exchange Engines
   const portfolioManagerRef = useRef<PortfolioManager>(new PortfolioManager(10000));
   const virtualExchangeRef = useRef<VirtualExchange>(new VirtualExchange(portfolioManagerRef.current));
   const [portfolioState, setPortfolioState] = useState(portfolioManagerRef.current.getPortfolio());
   const [pendingOrders, setPendingOrders] = useState(virtualExchangeRef.current.getPendingOrders());
+
+  // 0. Portfolio-Synchronisation mit SQLite
+  const syncWithServerPortfolio = async () => {
+    try {
+      const res = await fetch('/api/portfolio/state');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.hasPersistedState && json.portfolio) {
+          portfolioManagerRef.current.restorePortfolio(json.portfolio);
+          setPortfolioState(portfolioManagerRef.current.getPortfolio());
+        }
+      }
+    } catch {
+      // Offline- oder Start-Fallback
+    }
+  };
+
+  const persistServerPortfolio = async (pf: Portfolio) => {
+    try {
+      await fetch('/api/portfolio/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portfolio: pf }),
+      });
+    } catch {
+      // Best-effort Persistence
+    }
+  };
+
+  useEffect(() => {
+    syncWithServerPortfolio();
+    const syncInterval = setInterval(syncWithServerPortfolio, 20000);
+    return () => clearInterval(syncInterval);
+  }, []);
 
   // Active Bot State
   const [activeBot, setActiveBot] = useState<StrategyType | null>(null);
@@ -71,6 +113,81 @@ export default function TradingTerminalPage() {
   const [latestOrchestratorRecord, setLatestOrchestratorRecord] = useState<OrchestratorCycleRecord | null>(null);
   const [orchestratorAuditTrail, setOrchestratorAuditTrail] = useState<OrchestratorCycleRecord[]>([]);
   const [isCircuitTripped, setIsCircuitTripped] = useState<boolean>(false);
+
+  // Grundeinstellungen: PILOT (Vollautomatik) vs. COPILOT (Assistiert mit Freigabe)
+  const [operatingMode, setOperatingMode] = useState<OperatingMode>('COPILOT');
+  const [pendingProposal, setPendingProposal] = useState<CopilotProposal | null>(null);
+
+  // Gespeicherte Grundeinstellung laden
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('monetarium_operating_mode') as OperatingMode | null;
+      if (saved === 'PILOT' || saved === 'COPILOT') {
+        setOperatingMode(saved);
+        orchestratorRef.current.setOperatingMode(saved);
+      }
+    } catch {
+      // Offline- oder Start-Fallback
+    }
+  }, []);
+
+  const handleToggleOperatingMode = (mode: OperatingMode) => {
+    setOperatingMode(mode);
+    orchestratorRef.current.setOperatingMode(mode);
+    try {
+      localStorage.setItem('monetarium_operating_mode', mode);
+    } catch {
+      // Best-effort Persistence
+    }
+  };
+
+  // Autopilot Stake / Einsatz-Budget (z.B. 500 € oder benutzerdefiniert)
+  const [autopilotStake, setAutopilotStake] = useState<AutopilotStakeConfig>(DEFAULT_AUTOPILOT_STAKE);
+
+  // Gespeicherten Autopilot-Einsatz laden
+  useEffect(() => {
+    try {
+      const savedStake = localStorage.getItem('monetarium_autopilot_stake');
+      if (savedStake) {
+        const parsed = JSON.parse(savedStake) as AutopilotStakeConfig;
+        if (parsed && parsed.stakeType && typeof parsed.stakeValue === 'number') {
+          setAutopilotStake(parsed);
+          orchestratorRef.current.setAutopilotStakeConfig(parsed);
+        }
+      }
+    } catch {
+      // Offline-Fallback
+    }
+  }, []);
+
+  const handleChangeAutopilotStake = (config: AutopilotStakeConfig) => {
+    setAutopilotStake(config);
+    orchestratorRef.current.setAutopilotStakeConfig(config);
+    try {
+      localStorage.setItem('monetarium_autopilot_stake', JSON.stringify(config));
+    } catch {
+      // Best-effort
+    }
+  };
+
+  const handleApproveProposal = (prop: CopilotProposal) => {
+    try {
+      orchestratorRef.current.approvePendingProposal(currentPrice);
+      setPendingProposal(null);
+      const updated = portfolioManagerRef.current.getPortfolio();
+      setPortfolioState(updated);
+      setPendingOrders(virtualExchangeRef.current.getPendingOrders());
+      persistServerPortfolio(updated);
+      setOrchestratorAuditTrail(orchestratorRef.current.getAuditTrail());
+    } catch (err) {
+      console.error('Fehler bei Freigabe:', err);
+    }
+  };
+
+  const handleRejectProposal = (prop: CopilotProposal) => {
+    orchestratorRef.current.rejectPendingProposal();
+    setPendingProposal(null);
+  };
 
   // Data Sentinel Agent State (D_real Real-Data Stream Officer)
   const [dataSentinelState, setDataSentinelState] = useState<DataSentinelOverallState>(() => dataIntegrityAgent.getTelemetry());
@@ -117,7 +234,7 @@ export default function TradingTerminalPage() {
   const [isNewsLoading, setIsNewsLoading] = useState<boolean>(false);
 
   // Weltnachrichten / Kalender abrufen
-  const fetchWorldNews = async (
+  const fetchWorldNews = useCallback(async (
     params: { crisis?: boolean; reset?: boolean; provider?: NewsProviderType } = {}
   ) => {
     try {
@@ -147,7 +264,7 @@ export default function TradingTerminalPage() {
     } finally {
       setIsNewsLoading(false);
     }
-  };
+  }, [newsProvider]);
 
   useEffect(() => {
     fetchWorldNews();
@@ -164,7 +281,7 @@ export default function TradingTerminalPage() {
       clearInterval(newsTimer);
       clearInterval(marketTimer);
     };
-  }, [newsProvider]);
+  }, [fetchWorldNews]);
 
   // 1. Symbol-Daten laden (unterstützt Krypto, CCXT, Alpaca und weltweites Universum)
   useEffect(() => {
@@ -172,7 +289,7 @@ export default function TradingTerminalPage() {
 
     async function loadData() {
       try {
-        const verified = await dataIntegrityAgent.fetchVerifiedSymbolData(selectedSymbol, '1h', 100);
+        const verified = await dataIntegrityAgent.fetchVerifiedSymbolData(selectedSymbol, chartTimeframe, 100);
         if (isMounted && verified.candles.length > 0) {
           setCandles(verified.candles);
           setCurrentPrice(verified.currentPrice);
@@ -193,7 +310,7 @@ export default function TradingTerminalPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedSymbol, activeEngine]);
+  }, [selectedSymbol, activeEngine, chartTimeframe]);
 
   // 2. Tick & Simulation Loop (aktualisiert Preise & führt Bot-Entscheidungen aus)
   useEffect(() => {
@@ -237,16 +354,35 @@ export default function TradingTerminalPage() {
           if (signal && signal.action !== 'HOLD') {
             const amount = signal.amount ?? (portfolioManagerRef.current.getPortfolio().cash * 0.15) / newClose;
             if (amount > 0) {
-              try {
-                virtualExchangeRef.current.submitOrder({
+              if (operatingMode === 'COPILOT') {
+                const prop: CopilotProposal = {
+                  id: `prop-bot-${Date.now()}`,
+                  timestamp: Date.now(),
                   symbol: selectedSymbol,
                   side: signal.action,
                   type: 'MARKET',
-                  amount,
-                  currentMarketPrice: newClose,
-                });
-              } catch {
-                // Ignore limit/insufficient funds
+                  amount: Number(amount.toFixed(4)),
+                  expectedPrice: newClose,
+                  confluenceScore: signal.confidence ?? 75,
+                  strategyUsed: activeBot,
+                  rationale: signal.reason || `Signal von ${activeBot}-Strategie generiert.`,
+                  source: 'CLASSIC_BOT',
+                  status: 'PENDING',
+                };
+                setPendingProposal(prop);
+                orchestratorRef.current.setPendingProposal(prop);
+              } else {
+                try {
+                  virtualExchangeRef.current.submitOrder({
+                    symbol: selectedSymbol,
+                    side: signal.action,
+                    type: 'MARKET',
+                    amount,
+                    currentMarketPrice: newClose,
+                  });
+                } catch {
+                  // Ignore limit/insufficient funds
+                }
               }
             }
           }
@@ -264,6 +400,9 @@ export default function TradingTerminalPage() {
           );
           setLatestOrchestratorRecord(rec);
           setOrchestratorAuditTrail(orchestratorRef.current.getAuditTrail());
+          if (rec.execution.status === 'PENDING_APPROVAL' && rec.execution.proposal) {
+            setPendingProposal(rec.execution.proposal);
+          }
           if (orchestratorRef.current.isCircuitTripped()) {
             setIsCircuitTripped(true);
             setIsOrchestratorAutoPilot(false);
@@ -278,7 +417,8 @@ export default function TradingTerminalPage() {
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [selectedSymbol, activeBot, isOrchestratorAutoPilot, activeEngine, macroNews, globalMarketState]);
+  }, [selectedSymbol, activeBot, isOrchestratorAutoPilot, activeEngine, macroNews, globalMarketState, operatingMode]);
+
 
   // Manuelle Order-Ausführung
   const handleSubmitOrder = (params: {
@@ -299,8 +439,10 @@ export default function TradingTerminalPage() {
       currentMarketPrice: currentPrice,
     });
 
-    setPortfolioState(portfolioManagerRef.current.getPortfolio());
+    const updated = portfolioManagerRef.current.getPortfolio();
+    setPortfolioState(updated);
     setPendingOrders(virtualExchangeRef.current.getPendingOrders());
+    persistServerPortfolio(updated);
   };
 
   // Position glattstellen
@@ -314,7 +456,9 @@ export default function TradingTerminalPage() {
         amount: pos.amount,
         currentMarketPrice: currentPrice,
       });
-      setPortfolioState(portfolioManagerRef.current.getPortfolio());
+      const updated = portfolioManagerRef.current.getPortfolio();
+      setPortfolioState(updated);
+      persistServerPortfolio(updated);
     }
   };
 
@@ -334,6 +478,13 @@ export default function TradingTerminalPage() {
     fetchWorldNews({ reset: true });
     setPortfolioState(portfolioManagerRef.current.getPortfolio());
     setPendingOrders([]);
+
+    // Mit SQLite synchronisieren
+    fetch('/api/portfolio/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reset: true, initialCapital: 10000 }),
+    }).catch(() => {});
   };
 
   // Bot starten/stoppen (Klassische Bots)
@@ -371,6 +522,9 @@ export default function TradingTerminalPage() {
     );
     setLatestOrchestratorRecord(rec);
     setOrchestratorAuditTrail(orchestratorRef.current.getAuditTrail());
+    if (rec.execution.status === 'PENDING_APPROVAL' && rec.execution.proposal) {
+      setPendingProposal(rec.execution.proposal);
+    }
     setIsCircuitTripped(orchestratorRef.current.isCircuitTripped());
     setPortfolioState(portfolioManagerRef.current.getPortfolio());
     setPendingOrders(virtualExchangeRef.current.getPendingOrders());
@@ -397,8 +551,10 @@ export default function TradingTerminalPage() {
       currentMarketPrice: currentPrice,
     });
 
-    setPortfolioState(portfolioManagerRef.current.getPortfolio());
+    const updated = portfolioManagerRef.current.getPortfolio();
+    setPortfolioState(updated);
     setPendingOrders(virtualExchangeRef.current.getPendingOrders());
+    persistServerPortfolio(updated);
   };
 
   const handleSelectProfile = (profile: TradingAgentProtocolProfile) => {
@@ -421,6 +577,49 @@ export default function TradingTerminalPage() {
     }
   };
 
+  // Krypto Auto-Invest & Basket-Ausführung
+  const handleExecuteCryptoBasket = async (plan: CryptoBasketPlan): Promise<CryptoBasketExecutionResult> => {
+    const result = executeCryptoBasket(plan, virtualExchangeRef.current);
+    
+    // Portfolio & Pending Orders aktualisieren und mit Server synchronisieren
+    const updated = portfolioManagerRef.current.getPortfolio();
+    setPortfolioState(updated);
+    setPendingOrders(virtualExchangeRef.current.getPendingOrders());
+    await persistServerPortfolio(updated);
+
+    return {
+      ...result,
+      portfolioCashRemaining: updated.cash,
+      portfolioEquity: updated.equity,
+    };
+  };
+
+  // Vollautonome Krypto-Investition (App übernimmt die komplette Auswahl & Ausführung)
+  const handleExecuteAutonomousCrypto = async (budget?: number): Promise<CryptoBasketExecutionResult> => {
+    const vixPrice = globalMarketState?.vixLevel ?? 16.5;
+    const isRiskOff = globalMarketState?.riskRegime === 'RISK_OFF' || !!macroNews?.crisisActive;
+    const { plan } = evaluateAutonomousCryptoDecision({
+      availableCash: portfolioState.cash,
+      vixPrice,
+      macroRegime: isRiskOff ? 'RISK_OFF' : 'RISK_ON',
+      customBudget: budget,
+    });
+    return handleExecuteCryptoBasket(plan);
+  };
+
+  // Omni-Market & Sektor-Flotten Allokations-Ausführung (20 Assets über alle Weltmärkte & Sektoren)
+  const handleExecuteOmniMarketInvestment = async () => {
+    const plan = generateOmniMarketPlan({
+      availableCash: portfolioState.cash,
+      targetBudgetPercent: 80,
+    });
+    executeOmniMarketBasket(plan, virtualExchangeRef.current);
+    const updated = portfolioManagerRef.current.getPortfolio();
+    setPortfolioState(updated);
+    setPendingOrders(virtualExchangeRef.current.getPendingOrders());
+    await persistServerPortfolio(updated);
+  };
+
   // Quant-Metriken berechnen
   const quantMetrics = useMemo(() => {
     const equityCurve = [
@@ -438,7 +637,7 @@ export default function TradingTerminalPage() {
   const availableEngines = engineManagerRef.current.getAvailableEngines();
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-trading-bg">
+    <div className="flex-1 flex flex-col min-h-screen bg-trading-bg w-full max-w-full min-w-0 overflow-x-hidden">
       {/* Top Navigation & Status */}
       <Header
         selectedSymbol={selectedSymbol}
@@ -455,10 +654,14 @@ export default function TradingTerminalPage() {
         dataSentinelState={dataSentinelState}
         onOpenDataSentinelModal={() => setIsDataSentinelModalOpen(true)}
         onOpenArcadeModal={() => setIsArcadeModalOpen(true)}
+        onOpenCryptoAutoInvestModal={() => setIsCryptoAutoInvestModalOpen(true)}
+        operatingMode={operatingMode}
+        onToggleOperatingMode={handleToggleOperatingMode}
+        pendingProposalCount={pendingProposal ? 1 : 0}
       />
 
       {/* GESAMTBÖRSENMARKT-RADAR (Global Intermarket Watch) */}
-      <div className="max-w-[1920px] mx-auto w-full px-4 pt-3">
+      <div className="max-w-[1920px] mx-auto w-full px-2 sm:px-4 pt-3 min-w-0">
         <GlobalMarketRadar
           globalMarket={globalMarketState}
           selectedSymbol={selectedSymbol}
@@ -468,7 +671,7 @@ export default function TradingTerminalPage() {
       </div>
 
       {/* GESAMTBÖRSENMARKT-SCREENER (Live Movers & 11 GICS Sektoren) */}
-      <div className="max-w-[1920px] mx-auto w-full px-4 pt-3">
+      <div className="max-w-[1920px] mx-auto w-full px-2 sm:px-4 pt-3 min-w-0">
         <GlobalMarketScreener
           screenerData={screenerData}
           selectedSymbol={selectedSymbol}
@@ -478,7 +681,7 @@ export default function TradingTerminalPage() {
       </div>
 
       {/* Makro-News & Forex Factory Kalender Bar */}
-      <div className="max-w-[1920px] mx-auto w-full px-4 pt-3">
+      <div className="max-w-[1920px] mx-auto w-full px-2 sm:px-4 pt-3 min-w-0">
         <WorldNewsBar
           macroNews={macroNews}
           isLoading={isNewsLoading}
@@ -494,7 +697,7 @@ export default function TradingTerminalPage() {
       </div>
 
       {/* NEXUS Sektor-Flotte (5 Branchen-Agenten) */}
-      <div className="max-w-[1920px] mx-auto w-full px-4 pt-3">
+      <div className="max-w-[1920px] mx-auto w-full px-2 sm:px-4 pt-3 min-w-0">
         <SectorFleetPanel
           sectors={sectorFleet}
           activeSector={activeSector}
@@ -507,19 +710,77 @@ export default function TradingTerminalPage() {
               setCurrentPrice(foundAsset.basePrice);
             }
           }}
+          onExecuteOmniMarketInvestment={handleExecuteOmniMarketInvestment}
         />
       </div>
 
       {/* Main Terminal Layout */}
-      <main className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1920px] mx-auto w-full">
+      <main className="flex-1 p-2 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1920px] mx-auto w-full min-w-0">
         {/* Left / Center Column: Chart, Positions, Quant Metrics, Backtest */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
+        <div className="lg:col-span-8 flex flex-col gap-4 min-w-0 w-full">
+          {/* Ansichten-Umschalter: Kombi vs. Nur Chart vs. Nur Zeithorizonte */}
+          <div className="flex flex-wrap items-center justify-between bg-trading-surface border border-trading-border rounded-xl px-3 py-2 gap-2">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-trading-muted text-[11px]">Ansichtsmodus:</span>
+              <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                {selectedSymbol}
+              </span>
+            </div>
+            <div className="flex bg-trading-bg rounded-lg border border-trading-border p-0.5 text-xs font-mono">
+              <button
+                onClick={() => setChartViewMode('SPLIT')}
+                className={`px-2.5 py-1 rounded transition text-[11px] ${
+                  chartViewMode === 'SPLIT'
+                    ? 'bg-emerald-500/20 text-emerald-400 font-bold shadow-sm border border-emerald-500/30'
+                    : 'text-trading-muted hover:text-white'
+                }`}
+              >
+                Kombi (Chart & Horizonte)
+              </button>
+              <button
+                onClick={() => setChartViewMode('CHART_ONLY')}
+                className={`px-2.5 py-1 rounded transition text-[11px] ${
+                  chartViewMode === 'CHART_ONLY'
+                    ? 'bg-trading-card text-trading-accent font-bold shadow-sm'
+                    : 'text-trading-muted hover:text-white'
+                }`}
+              >
+                Nur Chart
+              </button>
+              <button
+                onClick={() => setChartViewMode('HORIZON_ONLY')}
+                className={`px-2.5 py-1 rounded transition text-[11px] ${
+                  chartViewMode === 'HORIZON_ONLY'
+                    ? 'bg-emerald-500/20 text-emerald-400 font-bold shadow-sm border border-emerald-500/30'
+                    : 'text-trading-muted hover:text-white'
+                }`}
+              >
+                Nur Zeithorizonte (W/M/Q/1J/5J/10J)
+              </button>
+            </div>
+          </div>
+
           {/* Chart Widget */}
-          <ChartWidget
-            candles={candles}
-            trades={portfolioState.tradeHistory}
-            symbol={selectedSymbol}
-          />
+          {chartViewMode !== 'HORIZON_ONLY' && (
+            <ChartWidget
+              candles={candles}
+              trades={portfolioState.tradeHistory}
+              symbol={selectedSymbol}
+              timeframe={chartTimeframe}
+              onTimeframeChange={(tf) => setChartTimeframe(tf)}
+            />
+          )}
+
+          {/* Multi-Perioden & Zeithorizont-Inspektor (Woche, Monat, Quartal, Jahr, 5 Jahre, 10 Jahre) */}
+          {chartViewMode !== 'CHART_ONLY' && (
+            <MacroHorizonInspector
+              symbol={selectedSymbol}
+              currentPrice={currentPrice}
+              candles={candles}
+              activeTimeframe={chartTimeframe}
+              onSelectTimeframe={(tf) => setChartTimeframe(tf)}
+            />
+          )}
 
           {/* NEXUS Trading Agent Orchestrator */}
           <TradingOrchestratorPanel
@@ -533,6 +794,16 @@ export default function TradingTerminalPage() {
             auditTrail={orchestratorAuditTrail}
             isCircuitTripped={isCircuitTripped}
             onResetCircuitBreaker={handleResetCircuitBreaker}
+            operatingMode={operatingMode}
+            onToggleOperatingMode={handleToggleOperatingMode}
+            pendingProposal={pendingProposal}
+            onApproveProposal={handleApproveProposal}
+            onRejectProposal={handleRejectProposal}
+            autopilotStake={autopilotStake}
+            onChangeAutopilotStake={handleChangeAutopilotStake}
+            currentPrice={currentPrice}
+            availableCash={portfolioState.cash}
+            symbol={selectedSymbol}
           />
 
           {/* Search Visibility & Attention Radar */}
@@ -541,9 +812,6 @@ export default function TradingTerminalPage() {
             currentPrice={currentPrice}
             candles={candles}
           />
-
-          {/* Quant Metrics Card */}
-          <MetricsCard metrics={quantMetrics} title="Live-Simulation Risikokennzahlen" />
 
           {/* Position & Order Tracker */}
           <PositionTracker
@@ -554,12 +822,15 @@ export default function TradingTerminalPage() {
             onCancelOrder={handleCancelOrder}
           />
 
+          {/* Quant Metrics Card */}
+          <MetricsCard metrics={quantMetrics} title="Live-Simulation Risikokennzahlen" />
+
           {/* Backtest & Overfitting Inspector */}
           <BacktestInspector candles={candles} symbol={selectedSymbol} />
         </div>
 
         {/* Right Column: Order Placement & Algorithmic Playground */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
+        <div className="lg:col-span-4 flex flex-col gap-4 min-w-0 w-full">
           {/* Risk & Position Sizing Calculator */}
           <RiskPositionCalculator
             currentPrice={currentPrice}
@@ -575,6 +846,12 @@ export default function TradingTerminalPage() {
             cashBalance={portfolioState.cash}
             currentHolding={currentHolding}
             onSubmitOrder={handleSubmitOrder}
+            onOpenCryptoAutoInvest={() => setIsCryptoAutoInvestModalOpen(true)}
+            onExecuteAutonomousBasket={handleExecuteAutonomousCrypto}
+            pendingProposal={pendingProposal}
+            operatingMode={operatingMode}
+            vixPrice={globalMarketState?.vixLevel ?? 16.5}
+            macroRegime={globalMarketState?.riskRegime === 'RISK_OFF' || !!macroNews?.crisisActive ? 'RISK_OFF' : 'RISK_ON'}
           />
 
           {/* Algorithmic Bot Playground */}
@@ -585,6 +862,7 @@ export default function TradingTerminalPage() {
           />
         </div>
       </main>
+
 
       {/* Engine Selector & External Connections Modal */}
       <EngineSelectorModal
@@ -614,11 +892,28 @@ export default function TradingTerminalPage() {
         />
       )}
 
+      {/* Krypto Auto-Invest & Robo-Advisor Modal */}
+      <CryptoAutoInvestModal
+        isOpen={isCryptoAutoInvestModalOpen}
+        onClose={() => setIsCryptoAutoInvestModalOpen(false)}
+        availableCash={portfolioState.cash}
+        onExecuteBasket={handleExecuteCryptoBasket}
+        onSelectSymbol={handleSelectUniversalSymbol}
+        vixPrice={globalMarketState?.vixLevel ?? 16.5}
+        macroRegime={globalMarketState?.riskRegime === 'RISK_OFF' || !!macroNews?.crisisActive ? 'RISK_OFF' : 'RISK_ON'}
+      />
+
       {/* Footer Disclaimer & Protocol Integrity */}
-      <footer className="bg-trading-surface border-t border-trading-border px-4 py-2.5 text-center text-[11px] text-trading-muted font-mono flex flex-wrap items-center justify-between gap-2">
-        <span>MONETARIUM V1.0 • Multi-Engine Trading Terminal (TradingView + CCXT + Alpaca)</span>
-        <span>Paper Trading Umgebung: Alle Orders & Kennzahlen werden virtuell ohne Kapitalrisiko berechnet</span>
-        <span>Strikte Out-of-Sample Backtesting-Hygiene aktiv</span>
+      <footer className="bg-trading-surface border-t border-trading-border px-3 sm:px-4 py-3 text-[11px] text-trading-muted font-mono flex flex-col gap-1.5 max-w-full min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-bold text-white">MONETARIUM V1.0 • Institutional Quant Terminal</span>
+          <span>Status: SQLite-Persistenz aktiv • Out-of-Sample Backtesting-Hygiene</span>
+          <span>Routing: CCXT / Alpaca / Paper Engine</span>
+        </div>
+        <div className="text-[10px] text-slate-500 border-t border-trading-border/30 pt-1.5">
+          <span className="font-semibold text-amber-500/80 uppercase mr-1">Risikohinweis:</span>
+          Monetarium dient primär als algorithmische Simulations- und Research-Umgebung. Der Handel mit Hebelprodukten, Aktien und Krypto-Assets birgt hohe Verlustrisiken bis hin zum Totalverlust. Historische Backtests, Kennzahlen (Sharpe/Sortino) und Modell-Projektionen stellen keine Garantie oder verlässliche Zusicherung künftiger Gewinne dar.
+        </div>
       </footer>
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Coins,
   Shield,
@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Radio,
   Layers,
+  RefreshCw,
 } from 'lucide-react';
 import { SectorAgentInfo, SectorType } from '../../lib/types/sectors';
 
@@ -21,6 +22,7 @@ interface SectorFleetPanelProps {
   selectedSymbol: string;
   onSelectSector: (sector: SectorType) => void;
   onSelectSymbol: (symbol: string) => void;
+  onExecuteOmniMarketInvestment?: () => Promise<void>;
 }
 
 export const SectorFleetPanel: React.FC<SectorFleetPanelProps> = ({
@@ -29,7 +31,25 @@ export const SectorFleetPanel: React.FC<SectorFleetPanelProps> = ({
   selectedSymbol,
   onSelectSector,
   onSelectSymbol,
+  onExecuteOmniMarketInvestment,
 }) => {
+  const [isInvesting, setIsInvesting] = useState<boolean>(false);
+  const [isSuccess, setIsSuccess] = useState<boolean>(false);
+
+  const handleRunOmniInvestment = async () => {
+    if (!onExecuteOmniMarketInvestment || isInvesting) return;
+    try {
+      setIsInvesting(true);
+      setIsSuccess(false);
+      await onExecuteOmniMarketInvestment();
+      setIsSuccess(true);
+      setTimeout(() => setIsSuccess(false), 5000);
+    } catch (err) {
+      console.error('Fehler bei Omni-Market-Investition:', err);
+    } finally {
+      setIsInvesting(false);
+    }
+  };
   const getSectorIcon = (sector: SectorType) => {
     switch (sector) {
       case 'CRYPTO':
@@ -87,11 +107,46 @@ export const SectorFleetPanel: React.FC<SectorFleetPanelProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-[11px] text-trading-muted">
-          <span>Aktiver Sektor:</span>
-          <span className="text-white font-bold px-2 py-0.5 rounded bg-trading-card border border-trading-border">
-            {sectors.find((s) => s.sector === activeSector)?.name || activeSector}
-          </span>
+        <div className="flex items-center gap-3">
+          {onExecuteOmniMarketInvestment && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRunOmniInvestment();
+              }}
+              disabled={isInvesting}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-1.5 transition shadow-sm ${
+                isSuccess
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                  : 'bg-gradient-to-r from-emerald-500/20 via-sky-500/20 to-purple-500/20 hover:from-emerald-500/30 hover:to-purple-500/30 text-white border-sky-500/40 shadow-sky-500/10'
+              }`}
+              title="80% des Kapitals über 20 Assets aller 5 Sektoren & globale Leitindizes verteilen"
+            >
+              {isInvesting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                  <span>Investiere in 20 Assets...</span>
+                </>
+              ) : isSuccess ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>In alle Märkte investiert!</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>In alle Märkte & Sektor-Flotte investieren</span>
+                </>
+              )}
+            </button>
+          )}
+
+          <div className="flex items-center gap-1.5 text-[11px] text-trading-muted">
+            <span>Aktiver Sektor:</span>
+            <span className="text-white font-bold px-2 py-0.5 rounded bg-trading-card border border-trading-border">
+              {sectors.find((s) => s.sector === activeSector)?.name || activeSector}
+            </span>
+          </div>
         </div>
       </div>
 

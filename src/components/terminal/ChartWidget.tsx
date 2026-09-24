@@ -1,17 +1,36 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Candle, TradeLog } from '../../lib/types/trading';
-import { BarChart3, Layers, Maximize2 } from 'lucide-react';
+import { BarChart3, Layers, Maximize2, Calendar, Clock } from 'lucide-react';
 
 interface ChartWidgetProps {
   candles: Candle[];
   trades: TradeLog[];
   symbol: string;
+  timeframe?: string;
+  onTimeframeChange?: (tf: string) => void;
 }
 
-export const ChartWidget: React.FC<ChartWidgetProps> = ({ candles, trades, symbol }) => {
-  const [timeframe, setTimeframe] = useState('1h');
+const INTRADAY_TIMEFRAMES = ['1m', '15m', '1h', '4h', '1d'];
+const MACRO_HORIZONS = [
+  { id: '1W', label: 'Woche (1W)', short: '1W' },
+  { id: '1M', label: 'Monat (1M)', short: '1M' },
+  { id: '1Q', label: 'Quartal (1Q)', short: '1Q' },
+  { id: '1Y', label: 'Jahr (1J)', short: '1Y' },
+  { id: '5Y', label: '5 Jahre (5J)', short: '5Y' },
+  { id: '10Y', label: '10 Jahre (10J)', short: '10Y' },
+];
+
+export const ChartWidget: React.FC<ChartWidgetProps> = ({
+  candles,
+  trades,
+  symbol,
+  timeframe: externalTimeframe,
+  onTimeframeChange,
+}) => {
+  const [internalTimeframe, setInternalTimeframe] = useState('1h');
+  const activeTimeframe = externalTimeframe || internalTimeframe;
   const [showEma, setShowEma] = useState(true);
 
   // SVG-Koordinaten-Berechnung
@@ -37,9 +56,12 @@ export const ChartWidget: React.FC<ChartWidgetProps> = ({ candles, trades, symbo
 
   const priceRange = maxPrice - minPrice || 1;
 
-  const getY = (price: number) => {
-    return padding.top + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
-  };
+  const getY = useCallback(
+    (price: number) => {
+      return padding.top + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
+    },
+    [chartHeight, minPrice, priceRange, padding.top]
+  );
 
   const candleWidth = Math.max(2, Math.min(12, (chartWidth / (candles.length || 1)) * 0.7));
 
@@ -73,7 +95,7 @@ export const ChartWidget: React.FC<ChartWidgetProps> = ({ candles, trades, symbo
         return `${x},${y}`;
       })
       .join(' ');
-  }, [candles, ema9, showEma, chartWidth, minPrice, maxPrice]);
+  }, [candles, ema9, showEma, chartWidth, getY, padding.left]);
 
   const ema21Points = useMemo(() => {
     if (!showEma || ema21.length === 0) return '';
@@ -84,31 +106,107 @@ export const ChartWidget: React.FC<ChartWidgetProps> = ({ candles, trades, symbo
         return `${x},${y}`;
       })
       .join(' ');
-  }, [candles, ema21, showEma, chartWidth, minPrice, maxPrice]);
+  }, [candles, ema21, showEma, chartWidth, getY, padding.left]);
+
+  const formatTimeLabel = useCallback((ts: number, tf: string) => {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    if (tf === '10Y' || tf === '5Y') {
+      return d.getFullYear().toString();
+    }
+    if (tf === '1Y' || tf === '1Q') {
+      const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+      return `${monthNames[d.getMonth()]} '${d.getFullYear().toString().slice(-2)}`;
+    }
+    if (tf === '1M' || tf === '1W' || tf === '1d') {
+      const day = String(d.getDate()).padStart(2, '0');
+      const mon = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}.${mon}`;
+    }
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  }, []);
+
+  const timeTicks = useMemo(() => {
+    if (candles.length < 2) return [];
+    const ticksCount = 5;
+    const result: { x: number; label: string }[] = [];
+    for (let i = 0; i < ticksCount; i++) {
+      const idx = Math.min(candles.length - 1, Math.floor((i / (ticksCount - 1)) * (candles.length - 1)));
+      const x = padding.left + (idx / (candles.length - 1 || 1)) * chartWidth;
+      const label = formatTimeLabel(candles[idx].timestamp, activeTimeframe);
+      result.push({ x, label });
+    }
+    return result;
+  }, [candles, chartWidth, padding.left, activeTimeframe, formatTimeLabel]);
+
+  const activeHorizonName = useMemo(() => {
+    const found = MACRO_HORIZONS.find((h) => h.id === activeTimeframe);
+    if (found) return found.label;
+    return `Intraday (${activeTimeframe})`;
+  }, [activeTimeframe]);
 
   return (
-    <div className="bg-trading-surface border border-trading-border rounded-xl p-4 flex flex-col h-full">
+    <div className="bg-trading-surface border border-trading-border rounded-xl p-3 sm:p-4 flex flex-col h-full min-w-0 w-full">
       {/* Chart Toolbar */}
-      <div className="flex items-center justify-between pb-3 border-b border-trading-border/60 mb-2">
-        <div className="flex items-center gap-3">
-          <span className="font-bold text-sm tracking-wide text-white flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-trading-accent" />
-            {symbol} Interaktiver Candlestick-Chart
+      <div className="flex flex-wrap items-center justify-between pb-3 border-b border-trading-border/60 mb-2 gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+          <span className="font-bold text-xs sm:text-sm tracking-wide text-white flex items-center gap-1.5 sm:gap-2 truncate">
+            <BarChart3 className="w-4 h-4 text-trading-accent shrink-0" />
+            <span className="truncate">{symbol} Interaktiver Chart</span>
           </span>
-          <div className="flex bg-trading-bg rounded border border-trading-border text-[11px] font-mono">
-            {['1m', '15m', '1h', '4h', '1d'].map((tf) => (
+
+          {/* Intraday Timeframes */}
+          <div className="flex bg-trading-bg rounded border border-trading-border text-[11px] font-mono shrink-0 items-center">
+            <span className="px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-trading-muted border-r border-trading-border flex items-center gap-0.5 bg-trading-surface/60">
+              <Clock className="w-2.5 h-2.5" />
+              Intra
+            </span>
+            {INTRADAY_TIMEFRAMES.map((tf) => (
               <button
                 key={tf}
-                onClick={() => setTimeframe(tf)}
-                className={`px-2 py-0.5 ${timeframe === tf ? 'bg-trading-card text-trading-accent font-bold' : 'text-trading-muted hover:text-white'}`}
+                onClick={() => {
+                  setInternalTimeframe(tf);
+                  onTimeframeChange?.(tf);
+                }}
+                className={`px-1.5 sm:px-2 py-0.5 ${activeTimeframe === tf ? 'bg-trading-card text-trading-accent font-bold' : 'text-trading-muted hover:text-white'}`}
               >
                 {tf}
               </button>
             ))}
           </div>
+
+          {/* Makro-Horizonte: Woche, Monat, Quartal, Jahr, 5 Jahre, 10 Jahre */}
+          <div className="flex bg-trading-bg rounded border border-trading-border text-[11px] font-mono shrink-0 items-center">
+            <span className="px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-emerald-400 border-r border-trading-border flex items-center gap-0.5 bg-emerald-500/10 font-bold">
+              <Calendar className="w-2.5 h-2.5" />
+              Horizonte
+            </span>
+            {MACRO_HORIZONS.map((h) => (
+              <button
+                key={h.id}
+                title={h.label}
+                onClick={() => {
+                  setInternalTimeframe(h.id);
+                  onTimeframeChange?.(h.id);
+                }}
+                className={`px-1.5 sm:px-2 py-0.5 transition ${
+                  activeTimeframe === h.id
+                    ? 'bg-emerald-500/20 text-emerald-400 font-bold border-b-2 border-emerald-400'
+                    : 'text-trading-muted hover:text-white'
+                }`}
+              >
+                {h.short}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-2 sm:gap-3 text-xs shrink-0">
+          <span className="text-[10px] text-emerald-400/90 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 hidden md:inline">
+            {activeHorizonName}
+          </span>
           <button
             onClick={() => setShowEma(!showEma)}
             className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono border transition ${
@@ -120,13 +218,13 @@ export const ChartWidget: React.FC<ChartWidgetProps> = ({ candles, trades, symbo
             <Layers className="w-3 h-3" />
             EMA (9, 21)
           </button>
-          <span className="text-[10px] text-trading-muted font-mono">{candles.length} Kerzen geladen</span>
+          <span className="text-[10px] text-trading-muted font-mono hidden sm:inline">{candles.length} Kerzen</span>
         </div>
       </div>
 
       {/* SVG Canvas */}
-      <div className="relative flex-1 min-h-[360px] w-full select-none">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+      <div className="relative flex-1 min-h-[340px] sm:min-h-[360px] w-full select-none min-w-0 overflow-hidden">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
           <defs>
             <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#334155" stopOpacity="0.4" />
@@ -248,6 +346,30 @@ export const ChartWidget: React.FC<ChartWidgetProps> = ({ candles, trades, symbo
               </g>
             );
           })}
+
+          {/* X-Axis Time Ticks */}
+          {timeTicks.map((t, idx) => (
+            <g key={`time-tick-${idx}`}>
+              <line
+                x1={t.x}
+                y1={padding.top + chartHeight}
+                x2={t.x}
+                y2={padding.top + chartHeight + 4}
+                stroke="#334155"
+                strokeWidth="1"
+              />
+              <text
+                x={t.x}
+                y={padding.top + chartHeight + 16}
+                fill="#64748b"
+                fontSize="10"
+                fontFamily="monospace"
+                textAnchor="middle"
+              >
+                {t.label}
+              </text>
+            </g>
+          ))}
         </svg>
 
         {/* Legend */}

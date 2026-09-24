@@ -128,7 +128,9 @@ function createSparkline(base: number, changePct: number): number[] {
   let p = base * (1 - changePct / 100);
   const step = (base - p) / 8;
   for (let i = 0; i < 9; i++) {
-    points.push(Number((p + (Math.random() - 0.48) * (base * 0.003)).toFixed(2)));
+    // Deterministische Wellenform verhindert Hydration-Mismatches zwischen Server & Client
+    const wave = Math.sin(i * 1.25) * (base * 0.0018);
+    points.push(Number((p + wave).toFixed(2)));
     p += step;
   }
   points.push(base);
@@ -719,14 +721,70 @@ export function fetchGlobalMarketScreenerData(): GlobalMarketScreenerData {
 }
 
 /**
- * Lädt oder generiert konsistente Kerzen für jedes weltweite Symbol
+ * Liefert Zeithorizont-Konfigurationen für Candlestick-Generierung
  */
-export function loadUniversalCandles(symbol: string, basePrice: number, count: number = 100): Candle[] {
+export function getTimeframeIntervalConfig(timeframe: string = '1h'): { intervalMs: number; count: number; vol: number; trend: number } {
+  const tf = timeframe.trim();
+  switch (tf) {
+    case '1m':
+      return { intervalMs: 60 * 1000, count: 100, vol: 0.003, trend: 0.00005 };
+    case '15m':
+      return { intervalMs: 15 * 60 * 1000, count: 100, vol: 0.007, trend: 0.0001 };
+    case '1h':
+      return { intervalMs: 3600 * 1000, count: 100, vol: 0.015, trend: 0.0003 };
+    case '4h':
+      return { intervalMs: 4 * 3600 * 1000, count: 100, vol: 0.022, trend: 0.0005 };
+    case '1d':
+      return { intervalMs: 24 * 3600 * 1000, count: 90, vol: 0.030, trend: 0.0008 };
+    case '1W':
+    case '1w':
+      return { intervalMs: 7 * 24 * 3600 * 1000, count: 52, vol: 0.040, trend: 0.0012 }; // 52 Wochen
+    case '1M':
+      return { intervalMs: 30 * 24 * 3600 * 1000, count: 48, vol: 0.055, trend: 0.0020 }; // 48 Monate (4 Jahre)
+    case '1Q':
+      return { intervalMs: 90 * 24 * 3600 * 1000, count: 40, vol: 0.075, trend: 0.0028 }; // 40 Quartale (10 Jahre)
+    case '1Y':
+    case '1y':
+      return { intervalMs: 7 * 24 * 3600 * 1000, count: 52, vol: 0.038, trend: 0.0015 }; // 1 Jahr via 52 Wochenkerzen
+    case '5Y':
+    case '5y':
+      return { intervalMs: 30 * 24 * 3600 * 1000, count: 60, vol: 0.050, trend: 0.0025 }; // 5 Jahre via 60 Monatskerzen
+    case '10Y':
+    case '10y':
+      return { intervalMs: 30 * 24 * 3600 * 1000, count: 120, vol: 0.060, trend: 0.0030 }; // 10 Jahre via 120 Monatskerzen
+    default:
+      return { intervalMs: 3600 * 1000, count: 100, vol: 0.015, trend: 0.0003 };
+  }
+}
+
+/**
+ * Lädt oder generiert konsistente Kerzen für jedes weltweite Symbol unter Berücksichtigung des Zeithorizonts
+ */
+export function loadUniversalCandles(
+  symbol: string,
+  basePrice: number,
+  count: number = 100,
+  timeframe: string = '1h'
+): Candle[] {
+  const config = getTimeframeIntervalConfig(timeframe);
+  const candleCount = count || config.count;
+  const isCrypto = symbol.includes('USDT') || symbol.includes('BTC') || symbol.includes('ETH');
+  const isVix = symbol.includes('VIX');
+
+  const vol = isCrypto ? config.vol * 1.5 : isVix ? 0.045 : config.vol;
+  const trend = isVix ? 0.0 : config.trend;
+
+  // Geschätzter Startkurs vor der Drift, damit der Endkurs nahe basePrice liegt
+  const expectedReturn = Math.pow(1 + trend, candleCount);
+  const estimatedStartPrice = Math.max(1, Number((basePrice / expectedReturn).toFixed(2)));
+
   return generateRealisticCandles({
     symbol,
-    startPrice: basePrice,
-    count,
-    volatility: symbol.includes('USDT') ? 0.025 : symbol.includes('VIX') ? 0.04 : 0.012,
-    trend: 0.0004,
+    startPrice: estimatedStartPrice,
+    count: candleCount,
+    intervalMs: config.intervalMs,
+    volatility: vol,
+    trend,
   });
 }
+

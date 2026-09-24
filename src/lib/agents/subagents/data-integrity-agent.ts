@@ -447,13 +447,36 @@ export class DataIntegrityAgent {
     let selectedSource: DataSourceId = 'RESILIENT_MIRROR';
     let isLive = false;
 
+    // Intervall- & Limit-Mapping für Makro-Horizonte (Woche, Monat, Quartal, 1J, 5J, 10J)
+    let apiTimeframe = timeframe;
+    let apiLimit = limit;
+    if (timeframe === '1W' || timeframe === '1w') {
+      apiTimeframe = '1w';
+      apiLimit = 52;
+    } else if (timeframe === '1M') {
+      apiTimeframe = '1M';
+      apiLimit = 48;
+    } else if (timeframe === '1Q') {
+      apiTimeframe = '1w';
+      apiLimit = 26;
+    } else if (timeframe === '1Y') {
+      apiTimeframe = '1w';
+      apiLimit = 52;
+    } else if (timeframe === '5Y') {
+      apiTimeframe = '1M';
+      apiLimit = 60;
+    } else if (timeframe === '10Y') {
+      apiTimeframe = '1M';
+      apiLimit = 120;
+    }
+
     // A. KRYPTO PIPELINE (Binance Direct -> CCXT Proxy -> Resilient Mirror)
     if (isCrypto) {
       // 1. Versuch: Binance Direct REST
       try {
         const [liveTicker, liveCandles] = await Promise.all([
           fetchCryptoTicker(apiSymbol),
-          fetchLiveCryptoCandles(apiSymbol, timeframe, limit),
+          fetchLiveCryptoCandles(apiSymbol, apiTimeframe, apiLimit),
         ]);
 
         if (liveCandles && liveCandles.length > 0) {
@@ -478,7 +501,7 @@ export class DataIntegrityAgent {
       if (rawCandles.length === 0) {
         try {
           const formattedSym = cleanSym.includes('/') ? cleanSym : `${cleanSym.replace('USDT', '')}/USDT`;
-          const proxyCandles = await this.ccxtConnector.fetchOHLCV('binance', formattedSym, timeframe, limit);
+          const proxyCandles = await this.ccxtConnector.fetchOHLCV('binance', formattedSym, apiTimeframe, apiLimit);
           const proxyTicker = await this.ccxtConnector.fetchTicker('binance', formattedSym);
 
           if (proxyCandles && proxyCandles.length > 0) {
@@ -499,7 +522,7 @@ export class DataIntegrityAgent {
     } else {
       // B. TRADFI / AKTIEN PIPELINE (Alpaca Data API -> Resilient Mirror)
       try {
-        const alpacaBars = await this.alpacaConnector.getStockBars(apiSymbol, '1Hour', limit);
+        const alpacaBars = await this.alpacaConnector.getStockBars(apiSymbol, '1Hour', apiLimit);
         if (alpacaBars && alpacaBars.length > 0) {
           rawCandles = alpacaBars;
           selectedSource = 'ALPACA_REST';
@@ -520,12 +543,12 @@ export class DataIntegrityAgent {
       selectedSource = 'RESILIENT_MIRROR';
       isLive = false;
       const resolved = resolveGlobalSymbol(cleanSym);
-      rawCandles = loadUniversalCandles(cleanSym, resolved.basePrice, limit);
+      rawCandles = loadUniversalCandles(cleanSym, resolved.basePrice, apiLimit, timeframe);
       currentPrice = rawCandles[rawCandles.length - 1].close;
       change24h = 0.85;
       high24h = Number((currentPrice * 1.02).toFixed(2));
       low24h = Number((currentPrice * 0.98).toFixed(2));
-      this.addAudit(`Tertiärer Schutz aktiv: Resilienter Kursanker für ${cleanSym} stabilisiert.`, 'INFO');
+      this.addAudit(`Tertiärer Schutz aktiv: Resilienter Kursanker für ${cleanSym} stabilisiert (${timeframe}).`, 'INFO');
     }
 
     // D. VALIDIERUNG & REPARATUR DURCHFÜHREN

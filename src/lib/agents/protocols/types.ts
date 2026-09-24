@@ -1,4 +1,4 @@
-import { Candle, OrderSide, OrderType, Portfolio, TradeLog } from '../../types/trading';
+import { Candle, OrderSide, OrderType, Portfolio, TradeLog, OperatingMode, CopilotProposal, AutopilotStakeConfig } from '../../types/trading';
 
 /**
  * Mögliche Marktregimes, identifiziert durch den Perception Scout
@@ -62,7 +62,9 @@ export interface RiskGuardianProtocol {
   kellyFraction: number; // e.g. 0.5 (Half Kelly sizing)
   cooldownTicksAfterLoss: number; // ticks to wait after stop out
   allowShorting: boolean;
+  customStake?: AutopilotStakeConfig;
 }
+
 
 /**
  * 4. Protokoll für Execution & Routing Officer
@@ -179,8 +181,9 @@ export interface ExecutionDecision {
   expectedPrice: number;
   executedPrice?: number;
   slippageBps: number;
-  status: 'EXECUTED' | 'SKIPPED' | 'REJECTED';
+  status: 'EXECUTED' | 'SKIPPED' | 'REJECTED' | 'PENDING_APPROVAL';
   notes: string;
+  proposal?: CopilotProposal;
 }
 
 export interface QuantCycleTelemetry {

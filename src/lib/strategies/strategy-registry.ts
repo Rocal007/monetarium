@@ -250,11 +250,11 @@ export const STRATEGY_REGISTRY: Record<StrategyType, StrategyRegistryEntry> = {
       name: 'CPPI Dynamic Portfolio Insurance',
       category: 'EXECUTION_RISK',
       badge: 'Kapitalschutz-Floor',
-      description: 'Constant Proportion Portfolio Insurance: Garantiert mathematisch ein Mindestkapitalniveau und skaliert den Hebel am Puffer (Cushion).',
+      description: 'Constant Proportion Portfolio Insurance: Zielt mathematisch auf die Wahrung eines Mindestkapitalniveaus ab und skaliert das Exposure am Puffer (Cushion).',
       formula: 'Exposure = Multiplier × (Equity - Floor)',
       defaultParams: { floorPercent: 85, multiplier: 2.5 },
       paramDefs: [
-        { key: 'floorPercent', label: 'Garantie-Boden / Floor (%)', defaultValue: 85, min: 70, max: 95 },
+        { key: 'floorPercent', label: 'Kapitalschutz-Boden / Floor (%)', defaultValue: 85, min: 70, max: 95 },
         { key: 'multiplier', label: 'Hebel-Multiplikator m', defaultValue: 2.5, min: 1.0, max: 5.0, step: 0.1 },
       ],
     },

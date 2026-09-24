@@ -45,12 +45,14 @@ export const RiskPositionCalculator: React.FC<RiskPositionCalculatorProps> = ({
     const capital = Math.min(tradeCapital, cashBalance > 0 ? cashBalance : tradeCapital);
     const amount = currentPrice > 0 ? capital / currentPrice : 0;
 
-    // Stop Loss & Take Profit Preise
+    // Stop Loss & Take Profit Preise (richtungsabhängig)
     const stopLossDistance = currentPrice * (riskTolerancePercent / 100);
-    const stopLossPrice = Math.max(0, currentPrice - stopLossDistance);
-
+    const stopLossPriceBuy = Math.max(0, currentPrice - stopLossDistance);
     const takeProfitDistance = stopLossDistance * crvMultiplier;
-    const takeProfitPrice = currentPrice + takeProfitDistance;
+    const takeProfitPriceBuy = currentPrice + takeProfitDistance;
+
+    const stopLossPriceSell = currentPrice + stopLossDistance;
+    const takeProfitPriceSell = Math.max(0, currentPrice - takeProfitDistance);
 
     // Absolute Beträge in Euro / USD
     const maxLossAmount = amount * stopLossDistance;
@@ -65,8 +67,12 @@ export const RiskPositionCalculator: React.FC<RiskPositionCalculatorProps> = ({
     return {
       capital,
       amount,
-      stopLossPrice,
-      takeProfitPrice,
+      stopLossPrice: stopLossPriceBuy,
+      takeProfitPrice: takeProfitPriceBuy,
+      stopLossPriceBuy,
+      takeProfitPriceBuy,
+      stopLossPriceSell,
+      takeProfitPriceSell,
       maxLossAmount,
       targetGainAmount,
       recommendedCapital,
@@ -77,13 +83,16 @@ export const RiskPositionCalculator: React.FC<RiskPositionCalculatorProps> = ({
   const handleQuickExecute = (side: OrderSide) => {
     if (currentPrice <= 0 || calculations.amount <= 0) return;
 
+    const stopLoss = side === 'BUY' ? calculations.stopLossPriceBuy : calculations.stopLossPriceSell;
+    const takeProfit = side === 'BUY' ? calculations.takeProfitPriceBuy : calculations.takeProfitPriceSell;
+
     onExecuteSimulatedTrade({
       side,
       type: 'MARKET',
       amount: calculations.amount,
       price: currentPrice,
-      stopLoss: calculations.stopLossPrice,
-      takeProfit: calculations.takeProfitPrice,
+      stopLoss,
+      takeProfit,
       riskPercent: riskTolerancePercent,
       crvMultiplier,
     });

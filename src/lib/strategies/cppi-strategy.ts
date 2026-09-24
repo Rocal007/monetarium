@@ -4,10 +4,10 @@ import { StrategySignal } from '../types/trading';
 /**
  * Constant Proportion Portfolio Insurance (CPPI) Strategy
  * Institutioneller Wertsicherungs-Algorithmus:
- * - Garantiert mathematisch einen vordefinierten Kapitalschutz-Boden (Floor, z.B. 85% des Startkapitals).
+ * - Definiert mathematisch einen angestrebten Kapitalschutz-Boden (Floor, z.B. 85% des Startkapitals).
  * - Berechnet den Sicherheitspuffer (Cushion = Equity - Floor).
  * - Skaliert die Markt-Exposure dynamisch mit einem Multiplikator m: TargetExposure = m * Cushion.
- * - Fällt das Kapital auf den Floor, wird die Position zu 100% in Cash liquidiert (Garantieschutz).
+ * - Fällt das Kapital auf den Floor, wird die Position zu 100% in Cash umgeschichtet (Kapitalschutz-Rebalancing).
  */
 export const executeCppiStrategy: StrategyExecutor = (
   candle,
@@ -16,7 +16,7 @@ export const executeCppiStrategy: StrategyExecutor = (
   portfolioManager,
   params
 ) => {
-  const floorRatio = (params.floorPercent ?? 85) / 100; // 85% Garantie
+  const floorRatio = (params.floorPercent ?? 85) / 100; // 85% Floor-Level
   const multiplier = params.multiplier ?? 2.5;
 
   if (history.length < 5) return null;

@@ -3,15 +3,40 @@ import { OrderSide, Portfolio, Position, TradeLog } from '../types/trading';
 export class PortfolioManager {
   private portfolio: Portfolio;
 
-  constructor(initialCapital: number = 10000) {
+  constructor(initialCapitalOrPortfolio: number | Portfolio = 10000) {
+    if (typeof initialCapitalOrPortfolio === 'object' && initialCapitalOrPortfolio !== null) {
+      this.portfolio = {
+        cash: initialCapitalOrPortfolio.cash,
+        initialBalance: initialCapitalOrPortfolio.initialBalance,
+        equity: initialCapitalOrPortfolio.equity,
+        realizedPnL: initialCapitalOrPortfolio.realizedPnL,
+        unrealizedPnL: initialCapitalOrPortfolio.unrealizedPnL,
+        positions: { ...initialCapitalOrPortfolio.positions },
+        tradeHistory: [...initialCapitalOrPortfolio.tradeHistory],
+      };
+    } else {
+      const initialCapital = typeof initialCapitalOrPortfolio === 'number' ? initialCapitalOrPortfolio : 10000;
+      this.portfolio = {
+        cash: initialCapital,
+        initialBalance: initialCapital,
+        equity: initialCapital,
+        realizedPnL: 0,
+        unrealizedPnL: 0,
+        positions: {},
+        tradeHistory: [],
+      };
+    }
+  }
+
+  public restorePortfolio(portfolio: Portfolio): void {
     this.portfolio = {
-      cash: initialCapital,
-      initialBalance: initialCapital,
-      equity: initialCapital,
-      realizedPnL: 0,
-      unrealizedPnL: 0,
-      positions: {},
-      tradeHistory: [],
+      cash: portfolio.cash,
+      initialBalance: portfolio.initialBalance,
+      equity: portfolio.equity,
+      realizedPnL: portfolio.realizedPnL,
+      unrealizedPnL: portfolio.unrealizedPnL,
+      positions: { ...portfolio.positions },
+      tradeHistory: [...portfolio.tradeHistory],
     };
   }
 

@@ -162,3 +162,51 @@ export interface StrategySignal {
     modifier: number;
   };
 }
+
+/**
+ * System-weite Grundeinstellungen für die Ausführung:
+ * - COPILOT: Assistierter Modus. Signale werden vorgeschlagen, der Nutzer entscheidet mit (Bestätigung/Ablehnung).
+ * - PILOT: Vollautomatischer Modus. Autorisierte Signale werden direkt und autonom ausgeführt.
+ */
+export type OperatingMode = 'COPILOT' | 'PILOT';
+
+export interface CopilotProposal {
+  id: string;
+  timestamp: number;
+  symbol: string;
+  side: OrderSide;
+  type: OrderType;
+  amount: number;
+  expectedPrice: number;
+  suggestedStopLoss?: number;
+  suggestedTakeProfit?: number;
+  confluenceScore: number;
+  strategyUsed: string;
+  rationale: string;
+  source: 'ORCHESTRATOR' | 'CLASSIC_BOT';
+  riskEur?: number;
+  riskPercent?: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+/**
+ * Autopilot-Einsatzkonfiguration:
+ * Bestimmt, wie viel Kapital pro Order im Autopilot/Pilot-Modus eingesetzt wird.
+ * - FIXED_EUR: Fester Betrag in Euro (z.B. 500 € pro Trade)
+ * - PERCENT_CASH: Prozentualer Anteil des verfügbaren Cash-Guthabens (z.B. 10%)
+ * - AUTO_KELLY: Mathematische Skalierung nach Volatilität & Fractional Kelly
+ */
+export type AutopilotStakeType = 'FIXED_EUR' | 'PERCENT_CASH' | 'AUTO_KELLY';
+
+export interface AutopilotStakeConfig {
+  stakeType: AutopilotStakeType;
+  stakeValue: number; // z.B. 500 für 500 € oder 10 für 10%
+  maxBudgetEur?: number;
+}
+
+export const DEFAULT_AUTOPILOT_STAKE: AutopilotStakeConfig = {
+  stakeType: 'FIXED_EUR',
+  stakeValue: 500,
+};
+
+

@@ -18,11 +18,21 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
+  Plane,
+  UserCheck,
+  Check,
+  X,
+  Bell,
+  Coins,
+  Sliders,
+  DollarSign,
+  Percent,
 } from 'lucide-react';
 import {
   OrchestratorCycleRecord,
   TradingAgentProtocolProfile,
 } from '../../lib/agents/protocols/types';
+import { CopilotProposal, OperatingMode, AutopilotStakeConfig, DEFAULT_AUTOPILOT_STAKE } from '../../lib/types/trading';
 
 interface TradingOrchestratorPanelProps {
   activeProfile: TradingAgentProtocolProfile;
@@ -35,6 +45,16 @@ interface TradingOrchestratorPanelProps {
   auditTrail: OrchestratorCycleRecord[];
   isCircuitTripped: boolean;
   onResetCircuitBreaker: () => void;
+  operatingMode?: OperatingMode;
+  onToggleOperatingMode?: (mode: OperatingMode) => void;
+  pendingProposal?: CopilotProposal | null;
+  onApproveProposal?: (proposal: CopilotProposal) => void;
+  onRejectProposal?: (proposal: CopilotProposal) => void;
+  autopilotStake?: AutopilotStakeConfig;
+  onChangeAutopilotStake?: (config: AutopilotStakeConfig) => void;
+  currentPrice?: number;
+  availableCash?: number;
+  symbol?: string;
 }
 
 export const TradingOrchestratorPanel: React.FC<TradingOrchestratorPanelProps> = ({
@@ -48,8 +68,57 @@ export const TradingOrchestratorPanel: React.FC<TradingOrchestratorPanelProps> =
   auditTrail,
   isCircuitTripped,
   onResetCircuitBreaker,
+  operatingMode = 'COPILOT',
+  onToggleOperatingMode,
+  pendingProposal,
+  onApproveProposal,
+  onRejectProposal,
+  autopilotStake = DEFAULT_AUTOPILOT_STAKE,
+  onChangeAutopilotStake,
+  currentPrice = 64500,
+  availableCash = 10000,
+  symbol = 'BTC/USDT',
 }) => {
   const [showFullAudit, setShowFullAudit] = useState(false);
+  const [customAmountInput, setCustomAmountInput] = useState<string>('');
+
+  const STAKE_PRESETS_EUR = [100, 250, 500, 1000, 2500];
+
+  const effectiveStakeEur = React.useMemo(() => {
+    if (!autopilotStake) return 500;
+    if (autopilotStake.stakeType === 'FIXED_EUR') {
+      return autopilotStake.stakeValue;
+    }
+    if (autopilotStake.stakeType === 'PERCENT_CASH') {
+      return availableCash * (autopilotStake.stakeValue / 100);
+    }
+    // AUTO_KELLY
+    return Math.min(availableCash * 0.05, 500);
+  }, [autopilotStake, availableCash]);
+
+  const stakeLabel = React.useMemo(() => {
+    if (!autopilotStake) return '500 €';
+    if (autopilotStake.stakeType === 'FIXED_EUR') {
+      return `${autopilotStake.stakeValue.toLocaleString('de-DE')} €`;
+    }
+    if (autopilotStake.stakeType === 'PERCENT_CASH') {
+      return `${autopilotStake.stakeValue}% Cash (~${Math.round(effectiveStakeEur).toLocaleString('de-DE')} €)`;
+    }
+    return 'Kelly Quant';
+  }, [autopilotStake, effectiveStakeEur]);
+
+  const approxUnits = React.useMemo(() => {
+    if (!currentPrice || currentPrice <= 0) return '0.00';
+    const units = effectiveStakeEur / currentPrice;
+    if (units < 0.001) return units.toFixed(6);
+    if (units < 1) return units.toFixed(4);
+    return units.toFixed(2);
+  }, [effectiveStakeEur, currentPrice]);
+
+  const maxPossibleTrades = React.useMemo(() => {
+    if (!effectiveStakeEur || effectiveStakeEur <= 0) return 0;
+    return Math.floor(availableCash / effectiveStakeEur);
+  }, [availableCash, effectiveStakeEur]);
 
   const getRegimeColor = (regime?: string) => {
     switch (regime) {
@@ -100,17 +169,53 @@ export const TradingOrchestratorPanel: React.FC<TradingOrchestratorPanelProps> =
           </div>
         </div>
 
-        {/* Live Status Badge */}
-        <div className="flex items-center gap-2">
+        {/* Operating Mode Selector & Live Status Badge */}
+        <div className="flex flex-wrap items-center gap-2">
+          {onToggleOperatingMode && (
+            <div className="flex items-center bg-trading-bg p-0.5 rounded-lg border border-trading-border text-xs">
+              <button
+                onClick={() => onToggleOperatingMode('COPILOT')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition text-xs ${
+                  operatingMode === 'COPILOT'
+                    ? 'bg-sky-500/25 text-sky-300 font-bold border border-sky-500/40 shadow-sm'
+                    : 'text-trading-muted hover:text-white'
+                }`}
+                title="Copilot: Assistiert. Jedes Signal wird zur Freigabe vorgelegt (du entscheidest mit)."
+              >
+                <UserCheck className="w-3.5 h-3.5 text-sky-400" />
+                <span>Copilot (Mitentscheiden)</span>
+                {pendingProposal && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                )}
+              </button>
+              <button
+                onClick={() => onToggleOperatingMode('PILOT')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition text-xs ${
+                  operatingMode === 'PILOT'
+                    ? 'bg-emerald-500/25 text-emerald-300 font-bold border border-emerald-500/40 shadow-sm'
+                    : 'text-trading-muted hover:text-white'
+                }`}
+                title="Pilot: Vollautomatisch. Signale werden direkt autonom ausgeführt (du entscheidest nicht mit)."
+              >
+                <Plane className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Pilot (Autonom)</span>
+              </button>
+            </div>
+          )}
+
           {isCircuitTripped ? (
             <span className="flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/20 px-2.5 py-1 rounded-full border border-rose-500/40 animate-pulse">
               <ShieldAlert className="w-3.5 h-3.5" />
               Circuit Breaker Aktiv
             </span>
           ) : isAutoPilot ? (
-            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-full border border-emerald-500/40">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              Auto-Pilot Taktend
+            <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${
+              operatingMode === 'PILOT'
+                ? 'text-emerald-400 bg-emerald-500/20 border-emerald-500/40'
+                : 'text-sky-400 bg-sky-500/20 border-sky-500/40'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${operatingMode === 'PILOT' ? 'bg-emerald-400' : 'bg-sky-400'} animate-ping`} />
+              {operatingMode === 'PILOT' ? 'Pilot Taktend (Auto-Exec)' : 'Copilot Taktend (Signal-Radar)'}
             </span>
           ) : (
             <span className="text-xs text-trading-muted bg-trading-bg px-2.5 py-1 rounded-full border border-trading-border">
@@ -171,50 +276,310 @@ export const TradingOrchestratorPanel: React.FC<TradingOrchestratorPanelProps> =
         </p>
       </div>
 
-      {/* 3. Action Control Buttons */}
-      <div className="flex items-center gap-2">
-        {isCircuitTripped ? (
-          <button
-            onClick={onResetCircuitBreaker}
-            className="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-wider text-xs transition flex items-center justify-center gap-2 shadow-lg"
-          >
-            <Shield className="w-4 h-4" />
-            Circuit Breaker Entsperren & Reset
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={onToggleAutoPilot}
-              className={`flex-1 py-2.5 rounded-lg font-black uppercase tracking-wider text-xs transition flex items-center justify-center gap-2 shadow-lg ${
-                isAutoPilot
-                  ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                  : 'bg-trading-accent hover:bg-sky-500 text-black'
-              }`}
-            >
-              {isAutoPilot ? (
-                <>
-                  <Square className="w-4 h-4 fill-white" />
-                  Auto-Pilot Stoppen
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 fill-black" />
-                  Auto-Pilot Starten
-                </>
-              )}
-            </button>
+      {/* 2b. Autopilot Einsatz & Budget-Steuerung */}
+      <div className={`p-3 rounded-xl border transition-all ${
+        operatingMode === 'PILOT'
+          ? 'bg-emerald-950/25 border-emerald-500/40 shadow-sm'
+          : 'bg-trading-bg/60 border-trading-border/80'
+      }`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <Coins className={`w-4 h-4 ${operatingMode === 'PILOT' ? 'text-emerald-400' : 'text-sky-400'}`} />
+            <span className="text-xs font-bold text-white">
+              Einsatz pro Trade (Autopilot-Budget):
+            </span>
+            <span className={`text-[11px] font-black px-2 py-0.5 rounded border ${
+              operatingMode === 'PILOT'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+            }`}>
+              {stakeLabel}
+            </span>
+          </div>
 
-            <button
-              onClick={onStepCycle}
-              title="Führt genau einen atomaren Deliberationszyklus der 5 Unteragenten aus"
-              className="py-2.5 px-4 rounded-lg bg-trading-card hover:bg-trading-bg text-white border border-trading-border text-xs font-bold transition flex items-center gap-1.5"
-            >
-              <StepForward className="w-4 h-4 text-sky-400" />
-              Einzelschritt
-            </button>
-          </>
-        )}
+          <div className="flex items-center gap-1 text-[10px] text-trading-muted">
+            <span>Verfügbares Cash:</span>
+            <span className="text-white font-bold">{availableCash.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+          </div>
+        </div>
+
+        {/* Schnellwahl-Pills (Presets) */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+          {STAKE_PRESETS_EUR.map((val) => {
+            const isSelected = autopilotStake?.stakeType === 'FIXED_EUR' && autopilotStake.stakeValue === val;
+            return (
+              <button
+                key={val}
+                type="button"
+                onClick={() => {
+                  if (onChangeAutopilotStake) {
+                    onChangeAutopilotStake({ stakeType: 'FIXED_EUR', stakeValue: val });
+                  }
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border ${
+                  isSelected
+                    ? operatingMode === 'PILOT'
+                      ? 'bg-emerald-500 text-black border-emerald-400 shadow-sm shadow-emerald-500/30'
+                      : 'bg-sky-500 text-black border-sky-400 shadow-sm shadow-sky-500/30'
+                    : 'bg-trading-surface hover:bg-trading-card text-slate-300 border-trading-border hover:border-trading-border/80'
+                }`}
+              >
+                {val.toLocaleString('de-DE')} €
+              </button>
+            );
+          })}
+
+          {/* Prozent-Schnellwahl */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onChangeAutopilotStake) {
+                onChangeAutopilotStake({ stakeType: 'PERCENT_CASH', stakeValue: 5 });
+              }
+            }}
+            className={`px-2 py-1 rounded-lg text-xs font-bold transition border ${
+              autopilotStake?.stakeType === 'PERCENT_CASH' && autopilotStake.stakeValue === 5
+                ? 'bg-sky-500 text-black border-sky-400'
+                : 'bg-trading-surface hover:bg-trading-card text-slate-300 border-trading-border'
+            }`}
+            title="5% des verfügbaren Cashs pro Trade"
+          >
+            5% Cash
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (onChangeAutopilotStake) {
+                onChangeAutopilotStake({ stakeType: 'PERCENT_CASH', stakeValue: 10 });
+              }
+            }}
+            className={`px-2 py-1 rounded-lg text-xs font-bold transition border ${
+              autopilotStake?.stakeType === 'PERCENT_CASH' && autopilotStake.stakeValue === 10
+                ? 'bg-sky-500 text-black border-sky-400'
+                : 'bg-trading-surface hover:bg-trading-card text-slate-300 border-trading-border'
+            }`}
+            title="10% des verfügbaren Cashs pro Trade"
+          >
+            10% Cash
+          </button>
+
+          {/* Kelly Auto Pill */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onChangeAutopilotStake) {
+                onChangeAutopilotStake({ stakeType: 'AUTO_KELLY', stakeValue: 0.25 });
+              }
+            }}
+            className={`px-2 py-1 rounded-lg text-xs font-bold transition border ${
+              autopilotStake?.stakeType === 'AUTO_KELLY'
+                ? 'bg-purple-500 text-black border-purple-400 shadow-sm shadow-purple-500/30'
+                : 'bg-trading-surface hover:bg-trading-card text-slate-300 border-trading-border'
+            }`}
+            title="Kelly-Formel: Berechnet optimale fraktionale Größe nach Volatilität & Win-Rate"
+          >
+            Kelly Quant
+          </button>
+        </div>
+
+        {/* Individuelle Eingabe & Live-Berechnung */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-trading-border/50 text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-trading-muted">Freier Betrag:</span>
+            <div className="flex items-center bg-trading-bg rounded border border-trading-border px-1.5 py-0.5">
+              <input
+                type="number"
+                min={15}
+                max={Math.max(100000, availableCash)}
+                step={50}
+                placeholder="z.B. 750"
+                value={customAmountInput}
+                onChange={(e) => setCustomAmountInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && customAmountInput) {
+                    const num = parseFloat(customAmountInput);
+                    if (!isNaN(num) && num >= 15 && onChangeAutopilotStake) {
+                      onChangeAutopilotStake({ stakeType: 'FIXED_EUR', stakeValue: num });
+                      setCustomAmountInput('');
+                    }
+                  }
+                }}
+                className="w-20 bg-transparent text-white text-xs outline-none font-mono"
+              />
+              <span className="text-trading-muted text-xs mr-1">€</span>
+              <button
+                type="button"
+                disabled={!customAmountInput || isNaN(parseFloat(customAmountInput)) || parseFloat(customAmountInput) < 15}
+                onClick={() => {
+                  const num = parseFloat(customAmountInput);
+                  if (!isNaN(num) && num >= 15 && onChangeAutopilotStake) {
+                    onChangeAutopilotStake({ stakeType: 'FIXED_EUR', stakeValue: num });
+                    setCustomAmountInput('');
+                  }
+                }}
+                className="px-1.5 py-0.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 rounded text-[10px] font-bold disabled:opacity-30 transition"
+              >
+                Setzen
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-trading-muted">
+            <span>≈ <span className="text-white font-bold">{approxUnits}</span> {symbol.split('/')[0]} bei {currentPrice.toLocaleString('de-DE')} €</span>
+            <span>•</span>
+            <span>Max. <span className="text-emerald-400 font-bold">{maxPossibleTrades}</span> Trades möglich</span>
+          </div>
+        </div>
       </div>
+
+      {/* 3. Action Control Buttons & Mode Info */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          {isCircuitTripped ? (
+            <button
+              onClick={onResetCircuitBreaker}
+              className="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-wider text-xs transition flex items-center justify-center gap-2 shadow-lg"
+            >
+              <Shield className="w-4 h-4" />
+              Circuit Breaker Entsperren & Reset
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onToggleAutoPilot}
+                className={`flex-1 py-3 rounded-xl font-black uppercase tracking-wider text-xs transition flex items-center justify-center gap-2 shadow-lg ${
+                  isAutoPilot
+                    ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                    : operatingMode === 'PILOT'
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/20'
+                    : 'bg-trading-accent hover:bg-sky-400 text-black shadow-sky-500/20'
+                }`}
+              >
+                {isAutoPilot ? (
+                  <>
+                    <Square className="w-4 h-4 fill-white" />
+                    {operatingMode === 'PILOT'
+                      ? `Pilot Stoppen (Aktiv: ${stakeLabel})`
+                      : 'Copilot-Radar Stoppen'}
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-black" />
+                    {operatingMode === 'PILOT'
+                      ? `Pilot Starten mit ${stakeLabel} Einsatz`
+                      : 'Copilot-Radar Starten (Signale suchen)'}
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={onStepCycle}
+                title="Führt genau einen atomaren Deliberationszyklus der 5 Unteragenten aus"
+                className="py-3 px-4 rounded-xl bg-trading-card hover:bg-trading-bg text-white border border-trading-border text-xs font-bold transition flex items-center gap-1.5"
+              >
+                <StepForward className="w-4 h-4 text-sky-400" />
+                Einzelschritt
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="text-[10px] text-trading-muted flex items-center justify-between px-1">
+          <span>
+            {operatingMode === 'COPILOT'
+              ? '🧑‍✈️ Copilot-Modus aktiv: Du entscheidest mit. Signale erfordern deine Freigabe.'
+              : `✈️ Pilot-Modus aktiv: Vollautomatisch mit ${stakeLabel} pro Order. Du drückst Start — den Rest erledigt die App.`}
+          </span>
+          {pendingProposal && operatingMode === 'COPILOT' && (
+            <span className="text-amber-400 font-bold flex items-center gap-1 animate-pulse">
+              <Bell className="w-3 h-3" />
+              1 Signal wartet auf deine Freigabe
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 3b. Copilot Decision Box / Freigabe-HUD (wenn ein Vorschlag vorliegt) */}
+      {pendingProposal && operatingMode === 'COPILOT' && onApproveProposal && onRejectProposal && (
+        <div className="bg-gradient-to-r from-sky-950/70 via-trading-card to-sky-950/70 border-2 border-sky-500/60 rounded-xl p-4 shadow-xl shadow-sky-500/10 animate-pulse-subtle flex flex-col gap-3">
+          <div className="flex items-center justify-between pb-2 border-b border-sky-500/30">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                <UserCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-black uppercase text-white tracking-wide block">
+                  Copilot Freigabe: Neuer Trade-Vorschlag
+                </span>
+                <span className="text-[10px] text-sky-300">
+                  Judikative P_J hat Signal geprüft. Du entscheidest mit — jetzt freigeben oder verwerfen.
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full font-bold flex items-center gap-1 animate-pulse">
+              <Bell className="w-3 h-3 text-amber-400" />
+              Wartet auf Freigabe
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div className="bg-trading-bg/80 p-2.5 rounded-lg border border-trading-border">
+              <span className="text-[10px] text-trading-muted block uppercase font-semibold">Richtung / Aktion</span>
+              <span className={`text-sm font-black flex items-center gap-1 ${pendingProposal.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {pendingProposal.side === 'BUY' ? 'KAUFEN (BUY)' : 'VERKAUFEN (SELL)'}
+              </span>
+            </div>
+            <div className="bg-trading-bg/80 p-2.5 rounded-lg border border-trading-border">
+              <span className="text-[10px] text-trading-muted block uppercase font-semibold">Asset & Menge</span>
+              <span className="text-sm font-bold text-white">
+                {pendingProposal.amount} {pendingProposal.symbol}
+              </span>
+            </div>
+            <div className="bg-trading-bg/80 p-2.5 rounded-lg border border-trading-border">
+              <span className="text-[10px] text-trading-muted block uppercase font-semibold">Kurs / Typ</span>
+              <span className="text-sm font-bold text-sky-300">
+                {pendingProposal.expectedPrice.toLocaleString('de-DE')} € ({pendingProposal.type})
+              </span>
+            </div>
+            <div className="bg-trading-bg/80 p-2.5 rounded-lg border border-trading-border">
+              <span className="text-[10px] text-trading-muted block uppercase font-semibold">Confluence & Modell</span>
+              <span className="text-sm font-bold text-amber-300 truncate" title={pendingProposal.strategyUsed}>
+                {pendingProposal.confluenceScore}% • {pendingProposal.strategyUsed.split('_')[0]}
+              </span>
+            </div>
+          </div>
+
+          {pendingProposal.rationale && (
+            <div className="text-[11px] text-slate-200 bg-trading-bg/60 p-2.5 rounded-lg border border-trading-border/60">
+              <span className="text-sky-400 font-bold mr-1">Strategie-Begründung:</span>
+              {pendingProposal.rationale}
+              {pendingProposal.riskEur && (
+                <span className="ml-2 text-trading-muted">
+                  (Max. Risiko: {pendingProposal.riskEur.toFixed(2)} €)
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              onClick={() => onApproveProposal(pendingProposal)}
+              className="flex-1 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-black uppercase text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+            >
+              <Check className="w-4 h-4" />
+              Trade Bestätigen & Jetzt Ausführen
+            </button>
+            <button
+              onClick={() => onRejectProposal(pendingProposal)}
+              className="py-2.5 px-5 rounded-lg bg-trading-bg hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 border border-trading-border hover:border-rose-500/40 font-bold text-xs transition flex items-center gap-2"
+            >
+              <X className="w-4 h-4" />
+              Verwerfen
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {/* 4. Subagenten-Matrix (5 Protokoll-Unteragenten) */}
       <div className="space-y-2">

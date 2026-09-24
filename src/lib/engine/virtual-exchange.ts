@@ -23,6 +23,10 @@ export class VirtualExchange {
     return [...this.pendingOrders];
   }
 
+  public reset(): void {
+    this.pendingOrders = [];
+  }
+
   public cancelOrder(orderId: string): boolean {
     const idx = this.pendingOrders.findIndex((o) => o.id === orderId);
     if (idx !== -1) {

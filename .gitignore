@@ -2,6 +2,8 @@
 node_modules/
 .pnp
 .pnp.js
+.venv/
+venv/
 
 # Build & Cache
 .next/
@@ -29,3 +31,13 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Local SQLite Database Files
+data/*.db
+data/*.db-*
+data/*.sqlite
+
+# Archives
+*.zip
+*.tar.gz
+

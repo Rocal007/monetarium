@@ -87,25 +87,29 @@ export const PositionTracker: React.FC<PositionTrackerProps> = ({
               </thead>
               <tbody className="divide-y divide-trading-border/20">
                 {posList.map((pos) => {
-                  const isProfit = pos.unrealizedPnL >= 0;
+                  const isProfit = (pos.unrealizedPnL ?? 0) >= 0;
                   return (
                     <tr key={pos.id} className="hover:bg-trading-bg/50 transition">
                       <td className="py-2.5 font-bold text-white">{pos.symbol}</td>
                       <td className="py-2.5">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
-                          LONG
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          pos.side === 'BUY'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        }`}>
+                          {pos.side === 'BUY' ? 'LONG' : 'SHORT'}
                         </span>
                       </td>
-                      <td className="py-2.5 text-trading-text">{pos.amount.toFixed(4)}</td>
-                      <td className="py-2.5 text-trading-muted">{pos.entryPrice.toLocaleString('de-DE')} €</td>
-                      <td className="py-2.5 text-white">{pos.currentPrice.toLocaleString('de-DE')} €</td>
+                      <td className="py-2.5 text-trading-text">{(pos.amount ?? 0).toFixed(4)}</td>
+                      <td className="py-2.5 text-trading-muted">{(pos.entryPrice ?? 0).toLocaleString('de-DE')} €</td>
+                      <td className="py-2.5 text-white">{(pos.currentPrice ?? 0).toLocaleString('de-DE')} €</td>
                       <td className="py-2.5 text-[11px] text-trading-muted">
                         {pos.stopLoss ? `SL: ${pos.stopLoss} €` : '-'} / {pos.takeProfit ? `TP: ${pos.takeProfit} €` : '-'}
                       </td>
                       <td className="py-2.5">
                         <span className={`font-bold flex items-center gap-1 ${isProfit ? 'text-trading-buy' : 'text-trading-sell'}`}>
                           {isProfit ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                          {isProfit ? '+' : ''}{pos.unrealizedPnL.toFixed(2)} € ({pos.unrealizedPnLPercent.toFixed(2)}%)
+                          {isProfit ? '+' : ''}{(pos.unrealizedPnL ?? 0).toFixed(2)} € ({(pos.unrealizedPnLPercent ?? 0).toFixed(2)}%)
                         </span>
                       </td>
                       <td className="py-2.5 text-right">
@@ -201,13 +205,13 @@ export const PositionTracker: React.FC<PositionTrackerProps> = ({
                         {trade.side}
                       </span>
                     </td>
-                    <td className="py-2 text-white">{trade.price.toLocaleString('de-DE')} €</td>
-                    <td className="py-2 text-trading-text">{trade.amount.toFixed(4)}</td>
-                    <td className="py-2 text-trading-muted">{trade.fee.toFixed(2)} €</td>
+                    <td className="py-2 text-white">{(trade.price ?? 0).toLocaleString('de-DE')} €</td>
+                    <td className="py-2 text-trading-text">{(trade.amount ?? 0).toFixed(4)}</td>
+                    <td className="py-2 text-trading-muted">{(trade.fee ?? 0).toFixed(2)} €</td>
                     <td className="py-2 text-right">
-                      {trade.pnl !== undefined ? (
+                      {trade.pnl !== undefined && trade.pnl !== null ? (
                         <span className={`font-bold ${trade.pnl >= 0 ? 'text-trading-buy' : 'text-trading-sell'}`}>
-                          {trade.pnl >= 0 ? '+' : ''}{trade.pnl.toFixed(2)} €
+                          {trade.pnl >= 0 ? '+' : ''}{(trade.pnl ?? 0).toFixed(2)} €
                         </span>
                       ) : (
                         <span className="text-trading-muted">-</span>

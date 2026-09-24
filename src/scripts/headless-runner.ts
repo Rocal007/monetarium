@@ -28,6 +28,7 @@ import { TradingAgentProtocolProfile } from '../lib/agents/protocols/types';
 import { ForexFactoryClient } from '../lib/news/forex-factory-client';
 import { MacroSentimentState } from '../lib/types/news';
 import { Candle } from '../lib/types/trading';
+import { SQLiteStateStore } from '../lib/storage/sqlite-state-store';
 
 // 1. Laden von .env.local / .env ohne externe Bibliotheken
 function loadEnvFile(filePath: string) {
@@ -66,6 +67,7 @@ const profileName = getArg('profile', 'CAPITAL_SHIELD').toUpperCase();
 const intervalSec = Math.max(5, parseInt(getArg('interval', '15'), 10));
 const isDryRun = hasFlag('dry-run');
 const isLive = process.env.TRADING_MODE === 'LIVE' && !isDryRun && !hasFlag('testnet');
+const shouldResetState = hasFlag('reset-state');
 
 console.log('╔══════════════════════════════════════════════════════════════╗');
 console.log('║       MONETARIUM — 24/7 AUTONOMER TRADING-DAEMON             ║');
@@ -76,12 +78,30 @@ console.log(`[Config] Profil:      ${profileName}`);
 console.log(`[Config] Intervall:   ${intervalSec}s`);
 console.log(`[Config] Modus:       ${isDryRun ? 'DRY-RUN (Virtuell / Zero-Risk)' : isLive ? '⚠️ LIVE-TRADING (Echtgeld)' : 'TESTNET / SANDBOX'}`);
 
-// 3. Protokoll-Profil auswählen
+// 3. SQLite State-Store & Portfolio initialisieren / wiederherstellen
+const store = new SQLiteStateStore();
+if (shouldResetState) {
+  store.resetState(10000);
+  console.log('[SQLite] Portfolio-State auf 10.000 € zurückgesetzt (--reset-state aktiv).');
+}
+
+const persistedPortfolio = store.loadPortfolio();
+let portfolioManager: PortfolioManager;
+
+if (persistedPortfolio && !shouldResetState) {
+  portfolioManager = new PortfolioManager(persistedPortfolio);
+  console.log(`[SQLite] Persistierten State wiederhergestellt: Cash: ${persistedPortfolio.cash.toFixed(2)} €, Positionen: ${Object.keys(persistedPortfolio.positions).length}, Trades: ${persistedPortfolio.tradeHistory.length}`);
+} else {
+  portfolioManager = new PortfolioManager(10000);
+  store.savePortfolio(portfolioManager.getPortfolio());
+  console.log('[SQLite] Neuer Portfolio-State in SQLite initialisiert (10.000 €).');
+}
+
+// 4. Protokoll-Profil auswählen
 const profile: TradingAgentProtocolProfile =
   PROTOCOL_PRESETS[profileName] || DEFAULT_PROTOCOL_PROFILE;
 
-// 4. Portfolio & Order-Executor konfigurieren
-const portfolioManager = new PortfolioManager(10000);
+// 5. Order-Executor konfigurieren
 const virtualExchange = new VirtualExchange(portfolioManager);
 
 let executor: IOrderExecutor;
@@ -108,6 +128,8 @@ let cycleCounter = 0;
 process.on('SIGINT', () => {
   console.log('\n[Daemon] Beende 24/7 Trading-Daemon ordnungsgemäß...');
   isRunning = false;
+  store.savePortfolio(portfolioManager.getPortfolio());
+  store.close();
   printSummary();
   process.exit(0);
 });
@@ -115,6 +137,8 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   console.log('\n[Daemon] SIGTERM empfangen, beende Prozess...');
   isRunning = false;
+  store.savePortfolio(portfolioManager.getPortfolio());
+  store.close();
   process.exit(0);
 });
 
@@ -205,6 +229,12 @@ async function runLoop() {
       if (record.execution.status === 'EXECUTED' && executor.isSimulation) {
         const pf = portfolioManager.getPortfolio();
         console.log(`   └─ Portfolio-Stand: ${pf.equity.toFixed(2)} USD (Cash: ${pf.cash.toFixed(2)} USD)`);
+      }
+
+      // SQLite State-Persistenz: Audit-Trail & Portfolio-Snapshot sichern
+      store.recordCycle(record);
+      if (record.execution.status === 'EXECUTED' || cycleCounter % 5 === 0) {
+        store.savePortfolio(portfolioManager.getPortfolio());
       }
 
     } catch (cycleErr: any) {

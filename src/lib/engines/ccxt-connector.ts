@@ -25,6 +25,13 @@ export interface CCXTTickerInfo {
  * Vermeidet Webpack-Bundle-Probleme und hält den Client ultra-schlank (< 2KB).
  */
 export class CCXTConnector {
+  private getBaseUrl(): string {
+    const isBrowser = typeof window !== 'undefined';
+    return isBrowser
+      ? ''
+      : (process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`);
+  }
+
   public getSupportedExchanges(): string[] {
     return ['binance', 'kraken', 'bybit', 'coinbase', 'okx', 'bitfinex', 'gateio', 'kucoin'];
   }
@@ -33,8 +40,9 @@ export class CCXTConnector {
    * Holt den aktuellen Ticker von der spezifizierten Börse
    */
   public async fetchTicker(exchangeId: string = 'binance', symbol: string = 'BTC/USDT'): Promise<CCXTTickerInfo> {
+    const baseUrl = this.getBaseUrl();
     try {
-      const url = `/api/engines/ccxt?exchange=${encodeURIComponent(exchangeId)}&symbol=${encodeURIComponent(symbol)}&type=ticker`;
+      const url = `${baseUrl}/api/engines/ccxt?exchange=${encodeURIComponent(exchangeId)}&symbol=${encodeURIComponent(symbol)}&type=ticker`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Proxy Ticker Fehler (${res.statusText})`);
       const json = await res.json();
@@ -69,8 +77,9 @@ export class CCXTConnector {
     timeframe: string = '1h',
     limit: number = 100
   ): Promise<Candle[]> {
+    const baseUrl = this.getBaseUrl();
     try {
-      const url = `/api/engines/ccxt?exchange=${encodeURIComponent(exchangeId)}&symbol=${encodeURIComponent(symbol)}&type=ohlcv&timeframe=${timeframe}&limit=${limit}`;
+      const url = `${baseUrl}/api/engines/ccxt?exchange=${encodeURIComponent(exchangeId)}&symbol=${encodeURIComponent(symbol)}&type=ohlcv&timeframe=${timeframe}&limit=${limit}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Proxy OHLCV Fehler (${res.statusText})`);
       const json = await res.json();
@@ -107,10 +116,7 @@ export class CCXTConnector {
     price?: number;
     credentials?: ExchangeCredentials;
   }) {
-    const isBrowser = typeof window !== 'undefined';
-    const baseUrl = isBrowser
-      ? ''
-      : (process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`);
+    const baseUrl = this.getBaseUrl();
 
     try {
       const res = await fetch(`${baseUrl}/api/engines/ccxt`, {

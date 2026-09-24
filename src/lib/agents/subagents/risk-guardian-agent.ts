@@ -130,32 +130,41 @@ export class RiskGuardianAgent {
       };
     }
 
-    // Invariante D: Positionsgrößenbestimmung & Fractional Kelly
+    // Invariante D: Positionsgrößenbestimmung & Autopilot Einsatz
     const maxRiskEuro = (portfolio.equity * (protocol.maxRiskPerTradePercent / 100));
-    const slPrice = hypothesis.suggestedStopLoss > 0 ? hypothesis.suggestedStopLoss : currentPrice * 0.98;
-    const slDistance = Math.max(currentPrice * 0.005, currentPrice - slPrice);
+    let targetOrderEur = 0;
 
-    let rawAmount = maxRiskEuro / slDistance;
-    // Skalierung mit Kelly-Faktor
-    let kellyAmount = rawAmount * protocol.kellyFraction;
-
-    // Obergrenze: maximal 25% des verfügbaren Cashs für eine Einzelorder
-    const maxOrderCost = portfolio.cash * 0.25;
-    const calculatedCost = kellyAmount * currentPrice;
-
-    if (calculatedCost > maxOrderCost) {
-      kellyAmount = maxOrderCost / currentPrice;
+    if (protocol.customStake?.stakeType === 'FIXED_EUR') {
+      targetOrderEur = protocol.customStake.stakeValue;
+    } else if (protocol.customStake?.stakeType === 'PERCENT_CASH') {
+      targetOrderEur = portfolio.cash * (protocol.customStake.stakeValue / 100);
+    } else {
+      // Standard: Fractional Kelly Modell
+      const slPrice = hypothesis.suggestedStopLoss > 0 ? hypothesis.suggestedStopLoss : currentPrice * 0.98;
+      const slDistance = Math.max(currentPrice * 0.005, currentPrice - slPrice);
+      const rawAmount = maxRiskEuro / slDistance;
+      const kellyAmount = rawAmount * protocol.kellyFraction;
+      const maxOrderCost = portfolio.cash * 0.25;
+      targetOrderEur = Math.min(kellyAmount * currentPrice, maxOrderCost);
     }
 
+    // Obergrenze: Nicht mehr als das verfügbare Cash
+    const maxAffordable = Math.max(0, portfolio.cash * 0.98);
+    if (targetOrderEur > maxAffordable) {
+      targetOrderEur = maxAffordable;
+    }
+
+    const calculatedAmount = currentPrice > 0 ? targetOrderEur / currentPrice : 0;
+
     // Mindestgröße prüfen (z. B. mindestens 15 € Gegenwert)
-    if (kellyAmount * currentPrice < 15) {
+    if (targetOrderEur < 15) {
       return {
         passed: false,
         approvedAmount: 0,
         riskPerTradeEuro: maxRiskEuro,
         circuitBreakerActive: false,
         proofScore: 0,
-        vetoReason: `MINDESTORDER-VETO: Berechnete Ordergröße (${(kellyAmount * currentPrice).toFixed(2)} €) liegt unter Mindestvolumen von 15 €.`,
+        vetoReason: `MINDESTORDER-VETO: Berechnete Ordergröße (${targetOrderEur.toFixed(2)} €) liegt unter Mindestvolumen von 15 € (Verfügbares Guthaben: ${portfolio.cash.toFixed(2)} €).`,
         invariantsChecked: {
           drawdownOk: true,
           exposureOk: true,
@@ -168,7 +177,7 @@ export class RiskGuardianAgent {
     // Alles bestanden! P_J = 1
     return {
       passed: true,
-      approvedAmount: Number(kellyAmount.toFixed(4)),
+      approvedAmount: Number(calculatedAmount.toFixed(4)),
       riskPerTradeEuro: Number(maxRiskEuro.toFixed(2)),
       circuitBreakerActive: false,
       proofScore: 1,
@@ -181,3 +190,4 @@ export class RiskGuardianAgent {
     };
   }
 }
+

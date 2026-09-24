@@ -62,3 +62,32 @@ Dieses Dokument bietet eine lückenlose Gesamtübersicht über alle vorhandenen 
 - **Sector Fleet Panel (`SectorFleetPanel.tsx`):** Übersicht der Allokation über Tech, Energie, Finanzen und Krypto.
 - **Search Visibility Radar & Attention Inspector (`SearchVisibilityRadar.tsx`):** Echtzeit-Überwachung von Web- und Google-Trends Suchsichtbarkeit (SVI), Momentum-Bestätigung und Retail-Euphorie-Filter.
 - **Risk & Position Sizing Calculator (`RiskPositionCalculator.tsx`):** Mathematische Positionsgrößen- und CRV-Berechnung nach Volatilität und Kelly-Kriterium.
+
+---
+
+## 6. Krypto Auto-Invest & Robo-Advisor Engine (`src/lib/crypto/` & `CryptoAutoInvestModal.tsx`)
+- **Autonome Krypto-Auswahl & Risikoprofile:**
+  - **Core Bluechip (Konservativ):** 60% BTC, 30% ETH, 10% SOL (Fokus auf ETF-Nettozuflüsse, maximale Liquidität).
+  - **Smart Momentum Basket (Ausgewogen):** Dynamische relative Stärke, 24h-Dynamik und EMA 9/21 Trend-Confluence.
+  - **Attention Alpha (Chancenorientiert):** Search-Volume-Index (SVI) Momentum bei Layer-1 & DeFi-Werten mit Retail-FOMO-Schutz.
+  - **Dip Accumulator (Contrarian):** Erkennt überverkaufte Qualitätstoken (RSI < 35, statistische Korrekturen).
+- **1-Klick Basket-Ausführung:**
+  - Berechnet exakte Token-Stückzahlen, EUR-Allokationen, Slippage und Gebühren.
+  - Führt alle Orders simultan über die aktive Engine aus und aktualisiert das Portfolio in Echtzeit.
+  - Zugänglich über den Navigations-Button `[⚡ Krypto Auto-Invest]` und direkt aus dem Order-Panel.
+
+---
+
+## 7. Multi-Perioden & Zeithorizont-Matrix (`src/components/terminal/MacroHorizonInspector.tsx`)
+- **Ganzheitliche 6-Perioden-Analyse:**
+  - **Woche (1W):** 7-Tage Dynamik & Kurzfrist-Momentum.
+  - **Monat (1M):** 30-Tage Swing & Konsolidierungs-Tracking.
+  - **Quartal (1Q):** 90-Tage Quartals- und Earnings-Zyklen.
+  - **Jahr (1J / 1Y):** 365-Tage Performance & 52-Wochen-Range.
+  - **5 Jahre (5J / 5Y):** Mittelfristige Halving- & Konjunkturzyklen.
+  - **10 Jahre (10J / 10Y):** Säkulare Megatrends & langfristige Asset-Expansion.
+- **Features:**
+  - Umschaltbar zwischen interaktiven Karten mit Sparklines und einer institutionellen Matrix-Tabelle (inkl. CAGR und Max Drawdown).
+  - Vollständige Synchronisation mit dem interaktiven SVG-Chart und adaptiver X-Achsen-Zeitskala (von Minuten bis zu 10-Jahres-Markern 2016–2026).
+
+

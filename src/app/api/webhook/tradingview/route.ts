@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { calculateSlippage } from '../../../../lib/engine/slippage-model';
 import { calculateTradeFee } from '../../../../lib/engine/fee-structure';
 import { parseTradingViewAlert } from '../../../../lib/data/crypto-feed';
+import { getSharedSQLiteStore } from '../../../../lib/storage/sqlite-state-store';
+import { PortfolioManager } from '../../../../lib/engine/portfolio-manager';
 
 // In-Memory Speicher für Webhook-Historie
 const webhookHistory: Array<{
@@ -18,7 +20,8 @@ const webhookHistory: Array<{
 /**
  * POST /api/webhook/tradingview
  * Empfängt Pine-Script Alerts aus TradingView und führt sie mit
- * realistischer Slippage- und Gebührensimulation aus.
+ * realistischer Slippage- und Gebührensimulation aus, inklusive atomarer
+ * Persistierung im Portfolio und der lokalen SQLite-Datenbank.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -74,12 +77,63 @@ export async function POST(req: NextRequest) {
       fee,
     };
 
+    // State-Persistenz: Portfolio laden, Order ausführen, State sichern
+    const store = getSharedSQLiteStore();
+    const persistedPortfolio = store.loadPortfolio();
+    const pm = new PortfolioManager(persistedPortfolio || 10000);
+
+    let executedTrade: any = null;
+
+    if (alert.action === 'BUY') {
+      try {
+        executedTrade = pm.executeBuy(
+          alert.symbol,
+          executionPrice,
+          amount,
+          fee,
+          executionLog.id,
+          alert.stopLoss,
+          alert.takeProfit
+        );
+        store.savePortfolio(pm.getPortfolio());
+      } catch (buyErr: any) {
+        return NextResponse.json({
+          success: false,
+          error: `Kauf fehlgeschlagen: ${buyErr.message}`,
+        }, { status: 400 });
+      }
+    } else {
+      // SELL oder CLOSE
+      const existingPos = pm.getPortfolio().positions[alert.symbol];
+      if (existingPos && existingPos.amount > 0) {
+        const sellAmount = alert.action === 'CLOSE' ? existingPos.amount : Math.min(existingPos.amount, amount);
+        try {
+          executedTrade = pm.executeSell(
+            alert.symbol,
+            executionPrice,
+            sellAmount,
+            fee,
+            executionLog.id
+          );
+          store.savePortfolio(pm.getPortfolio());
+        } catch (sellErr: any) {
+          return NextResponse.json({
+            success: false,
+            error: `Verkauf fehlgeschlagen: ${sellErr.message}`,
+          }, { status: 400 });
+        }
+      } else {
+        // Kein Bestand vorhanden (Paper-Trading schützt vor ungedeckten Verkäufen)
+        console.warn(`[TradingView Webhook] Verkauf/Close für ${alert.symbol} übersprungen: Keine offene Position.`);
+      }
+    }
+
     webhookHistory.unshift(executionLog);
     if (webhookHistory.length > 50) webhookHistory.pop();
 
     return NextResponse.json({
       success: true,
-      message: `TradingView ${alert.action}-Order für ${alert.symbol} erfolgreich simuliert`,
+      message: `TradingView ${alert.action}-Order für ${alert.symbol} erfolgreich simuliert und im Portfolio verbucht`,
       execution: {
         orderId: executionLog.id,
         symbol: alert.symbol,
@@ -91,7 +145,9 @@ export async function POST(req: NextRequest) {
         amount,
         stopLoss: alert.stopLoss,
         takeProfit: alert.takeProfit,
+        trade: executedTrade,
       },
+      portfolio: pm.getPortfolio(),
     });
   } catch (err: any) {
     return NextResponse.json(

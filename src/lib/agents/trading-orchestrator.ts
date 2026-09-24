@@ -1,9 +1,10 @@
 import { PortfolioManager } from '../engine/portfolio-manager';
 import { VirtualExchange } from '../engine/virtual-exchange';
 import { IOrderExecutor, VirtualOrderExecutor } from '../engine/order-router';
-import { Candle, Portfolio } from '../types/trading';
+import { Candle, Portfolio, OperatingMode, CopilotProposal, AutopilotStakeConfig, DEFAULT_AUTOPILOT_STAKE } from '../types/trading';
 import { DEFAULT_PROTOCOL_PROFILE, PROTOCOL_PRESETS } from './protocols/presets';
 import {
+  ExecutionDecision,
   OrchestratorCycleRecord,
   TradingAgentProtocolProfile,
 } from './protocols/types';
@@ -27,6 +28,9 @@ export class TradingAgentOrchestrator {
   private auditTrail: OrchestratorCycleRecord[] = [];
   private latestRecord: OrchestratorCycleRecord | null = null;
   private lastTradeCount: number = 0;
+  private operatingMode: OperatingMode = 'COPILOT';
+  private pendingProposal: CopilotProposal | null = null;
+  private autopilotStake: AutopilotStakeConfig = DEFAULT_AUTOPILOT_STAKE;
 
   constructor(
     executor: VirtualExchange | IOrderExecutor,
@@ -69,6 +73,57 @@ export class TradingAgentOrchestrator {
     return Object.values(PROTOCOL_PRESETS);
   }
 
+  public getOperatingMode(): OperatingMode {
+    return this.operatingMode;
+  }
+
+  public setOperatingMode(mode: OperatingMode): void {
+    this.operatingMode = mode;
+  }
+
+  public getPendingProposal(): CopilotProposal | null {
+    return this.pendingProposal;
+  }
+
+  public setPendingProposal(proposal: CopilotProposal | null): void {
+    this.pendingProposal = proposal;
+  }
+
+  public getAutopilotStakeConfig(): AutopilotStakeConfig {
+    return this.autopilotStake;
+  }
+
+  public setAutopilotStakeConfig(config: AutopilotStakeConfig): void {
+    this.autopilotStake = config;
+  }
+
+
+  /**
+   * Bestätigt den anstehenden Copilot-Vorschlag und führt die Order aus
+   */
+  public approvePendingProposal(currentPrice: number): ExecutionDecision | null {
+    if (!this.pendingProposal) return null;
+    const proposal = this.pendingProposal;
+    proposal.status = 'APPROVED';
+    const decision = ExecutionAgent.executeApprovedProposal(
+      proposal,
+      currentPrice,
+      this.orderExecutor
+    );
+    this.pendingProposal = null;
+    return decision;
+  }
+
+  /**
+   * Verwirft den anstehenden Copilot-Vorschlag
+   */
+  public rejectPendingProposal(reason?: string): void {
+    if (this.pendingProposal) {
+      this.pendingProposal.status = 'REJECTED';
+      this.pendingProposal = null;
+    }
+  }
+
   public isAutoPilotActive(): boolean {
     return this.isRunning;
   }
@@ -93,6 +148,7 @@ export class TradingAgentOrchestrator {
   public getLatestRecord(): OrchestratorCycleRecord | null {
     return this.latestRecord;
   }
+
 
   /**
    * Führt einen atomaren NEXUS-Trading-Zyklus synchron/isomorph durch:
@@ -158,14 +214,20 @@ export class TradingAgentOrchestrator {
       this.activeProfile.alphaStrategy
     );
 
-    // 3. Risk Guardian (Judikative Proof-Validator P_J)
+    // 3. Risk Guardian (Judikative Proof-Validator P_J mit Autopilot-Einsatz)
+    const riskProtocol = {
+      ...this.activeProfile.riskGuardian,
+      customStake: this.autopilotStake,
+    };
+
     const riskProof = RiskGuardianAgent.validate(
       hypothesis,
       portfolio,
       currentPrice,
-      this.activeProfile.riskGuardian,
+      riskProtocol,
       this.consecutiveLosses
     );
+
 
     // Search-Euphorie-Schutz: Veto gegen Long-Einstiege bei Retail-FOMO Peak
     if (hypothesis.action === 'BUY' && searchMetrics.regime === 'EUPHORIA_OVERHEATED' && searchMetrics.retailEuphoriaScore >= 90) {
@@ -217,8 +279,13 @@ export class TradingAgentOrchestrator {
       riskProof,
       currentPrice,
       this.activeProfile.executionRouting,
-      this.orderExecutor
+      this.orderExecutor,
+      this.operatingMode
     );
+
+    if (execution.status === 'PENDING_APPROVAL' && execution.proposal) {
+      this.pendingProposal = execution.proposal;
+    }
 
     // 5. Quant Evaluator (Cache C & Fixpunkt-Tracking)
     const telemetry = QuantEvaluatorAgent.evaluate(
@@ -311,14 +378,20 @@ export class TradingAgentOrchestrator {
       this.activeProfile.alphaStrategy
     );
 
-    // 3. Risk Guardian
+    // 3. Risk Guardian (Judikative Proof-Validator P_J mit Autopilot-Einsatz)
+    const riskProtocolAsync = {
+      ...this.activeProfile.riskGuardian,
+      customStake: this.autopilotStake,
+    };
+
     const riskProof = RiskGuardianAgent.validate(
       hypothesis,
       portfolio,
       currentPrice,
-      this.activeProfile.riskGuardian,
+      riskProtocolAsync,
       this.consecutiveLosses
     );
+
 
     // Search-Euphorie-Schutz: Veto gegen Long-Einstiege bei Retail-FOMO Peak
     if (hypothesis.action === 'BUY' && searchMetrics.regime === 'EUPHORIA_OVERHEATED' && searchMetrics.retailEuphoriaScore >= 90) {
@@ -361,8 +434,13 @@ export class TradingAgentOrchestrator {
       riskProof,
       currentPrice,
       this.activeProfile.executionRouting,
-      this.orderExecutor
+      this.orderExecutor,
+      this.operatingMode
     );
+
+    if (execution.status === 'PENDING_APPROVAL' && execution.proposal) {
+      this.pendingProposal = execution.proposal;
+    }
 
     // 5. Quant Evaluator
     const telemetry = QuantEvaluatorAgent.evaluate(
